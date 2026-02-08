@@ -7,7 +7,7 @@ class BRadius {
   /// Button radius values
   static const double buttonSmall = 8.0;
   static const double buttonMedium = 12.0;
-  static const double buttonLarge = 16.0;
+  static const double buttonLarge = 24.0;
 
   /// Card and container radius
   static const double cardSmall = 8.0;
