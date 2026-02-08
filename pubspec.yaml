@@ -35,8 +35,11 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   google_fonts: ^6.1.0
-  # Pick image from gallery or take photo with camera (handles Android/iOS permissions)
-  image_picker: ^1.0.7
+  flutter_svg: ^2.0.10
+  image_picker: ^1.2.1
+  intl: ^0.19.0
+  table_calendar: ^3.1.1
+
  
 
 dev_dependencies:
@@ -55,14 +58,13 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-
-  # To add assets to your application, add an assets section, like this:
-  assets:
+  assets: 
+    - assets/images/ProfileBackground.png
+    - assets/images/DoctorDetails.png
     - assets/images/
     - assets/images/NoSelectedChild_PlaceHolder.png
     - assets/images/wave.jpg
@@ -91,5 +93,7 @@ flutter:
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
   #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package
+  fonts:
+    - family: Markazi Text
+      fonts:
+        - asset: assets/fonts/MarkaziText-Regular.ttf
