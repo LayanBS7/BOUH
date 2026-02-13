@@ -1,6 +1,6 @@
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:bouh/View/Account/ChildrenManagementView.dart';
+import 'package:bouh/View/Profile/ChildrenManagementView.dart';
 
 class CaregiverAccountView extends StatelessWidget {
   const CaregiverAccountView({super.key});
