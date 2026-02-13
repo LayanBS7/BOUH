@@ -34,6 +34,8 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  flutter_svg: ^2.0.10
+  image_picker: ^1.2.1
   intl: ^0.19.0
   table_calendar: ^3.1.1
 
@@ -63,10 +65,6 @@ flutter:
     - assets/images/ProfileBackground.png
     - assets/images/DoctorDetails.png
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -91,5 +89,7 @@ flutter:
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
   #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package
+  fonts:
+    - family: Markazi Text
+      fonts:
+        - asset: assets/fonts/MarkaziText-Regular.ttf
