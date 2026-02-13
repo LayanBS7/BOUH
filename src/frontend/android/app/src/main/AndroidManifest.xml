@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Camera: required for "Take Photo" when user captures a new drawing -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Gallery/Photos: required for "Upload from album" on Android 13+ -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Legacy storage: for older Android versions when picking from gallery -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
         android:label="bouh"
         android:name="${applicationName}"
