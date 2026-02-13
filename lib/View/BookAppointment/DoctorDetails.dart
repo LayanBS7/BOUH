@@ -1,4 +1,4 @@
-import 'package:bouh/View/Appointment/BookAppointment.dart';
+import 'package:bouh/View/BookAppointment/BookAppointment.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 
