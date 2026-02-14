@@ -3,10 +3,11 @@ import 'caregiverHomepage.dart';
 import 'package:bouh/View/viewAppointments/appointmentspage.dart';
 import 'package:bouh/View/viewAppointments/bookedAppointmentsUpcoming.dart';
 import 'package:bouh/View/viewAppointments/bookedAppointmentsPrevious.dart';
+import 'package:bouh/View/DrawingAnalysis/RequestAnalysisPage.dart';
+import 'package:bouh/View/Profile/CaregiverProfile.dart';
 
 /// Shell that holds the caregiver bottom nav index and switches between
 /// home (0), drawings (1), appointments (2), and profile (3).
-/// Tapping the المواعيد tab shows the appointments stack (available ↔ booked).
 class CaregiverNavbar extends StatefulWidget {
   const CaregiverNavbar({super.key});
 
@@ -18,19 +19,21 @@ class _CaregiverNavbarState extends State<CaregiverNavbar> {
   int _currentIndex = 0;
 
   void _onTap(int index) {
-    if (index == 1 || index == 3) return;
     setState(() => _currentIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
+    final stackIndex = _currentIndex.clamp(0, 3);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: IndexedStack(
-        index: _currentIndex == 2 ? 1 : 0,
+        index: stackIndex,
         children: [
           CaregiverHomepage(currentIndex: _currentIndex, onTap: _onTap),
+          RequestAnalysisPage(currentIndex: _currentIndex, onTap: _onTap),
           _AppointmentsTabContent(currentIndex: _currentIndex, onTap: _onTap),
+          CaregiverAccountView(currentIndex: _currentIndex, onTap: _onTap),
         ],
       ),
     );

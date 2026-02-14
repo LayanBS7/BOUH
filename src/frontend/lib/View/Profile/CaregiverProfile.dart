@@ -1,9 +1,20 @@
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/View/Profile/ChildrenManagementView.dart';
+import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
 
 class CaregiverAccountView extends StatelessWidget {
-  const CaregiverAccountView({super.key});
+  const CaregiverAccountView({
+    super.key,
+    this.currentIndex = 3,
+    this.onTap,
+  });
+
+  /// Active bottom nav index (3 = profile). Pass when used inside [CaregiverNavbar].
+  final int currentIndex;
+
+  /// Called when a bottom nav item is tapped. Pass when used inside [CaregiverNavbar].
+  final ValueChanged<int>? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -152,6 +163,19 @@ class CaregiverAccountView extends StatelessWidget {
             ),
           ],
         ),
+        bottomNavigationBar: onTap != null
+            ? Material(
+                clipBehavior: Clip.none,
+                color: Colors.transparent,
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: CaregiverBottomNav(
+                    currentIndex: currentIndex,
+                    onTap: onTap,
+                  ),
+                ),
+              )
+            : null,
       ),
     );
   }
