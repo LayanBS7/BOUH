@@ -1,11 +1,10 @@
 import 'package:bouh/View/Profile/CaregiverProfile.dart';
+import 'package:bouh/View/patient_test.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('ar');
+void main() {
   runApp(const MyApp());
 }
 
@@ -14,6 +13,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: const CaregiverAccountView());
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: PatientTestPage(),
+    );
   }
 }
