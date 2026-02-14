@@ -3,6 +3,7 @@ import 'caregiverHomepage.dart';
 import 'package:bouh/View/viewAppointments/appointmentspage.dart';
 import 'package:bouh/View/viewAppointments/bookedAppointmentsUpcoming.dart';
 import 'package:bouh/View/viewAppointments/bookedAppointmentsPrevious.dart';
+import 'package:bouh/View/Profile/CaregiverProfile.dart';
 
 /// Shell that holds the caregiver bottom nav index and switches between
 /// home (0), drawings (1), appointments (2), and profile (3).
@@ -18,7 +19,7 @@ class _CaregiverNavbarState extends State<CaregiverNavbar> {
   int _currentIndex = 0;
 
   void _onTap(int index) {
-    if (index == 1 || index == 3) return;
+    if (index == 1) return;
     setState(() => _currentIndex = index);
   }
 
@@ -27,10 +28,11 @@ class _CaregiverNavbarState extends State<CaregiverNavbar> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: IndexedStack(
-        index: _currentIndex == 2 ? 1 : 0,
+        index: _currentIndex == 2 ? 1 : (_currentIndex == 3 ? 2 : 0),
         children: [
           CaregiverHomepage(currentIndex: _currentIndex, onTap: _onTap),
           _AppointmentsTabContent(currentIndex: _currentIndex, onTap: _onTap),
+          CaregiverAccountView(currentIndex: _currentIndex, onTap: _onTap),
         ],
       ),
     );
@@ -48,7 +50,8 @@ class _AppointmentsTabContent extends StatefulWidget {
   final ValueChanged<int> onTap;
 
   @override
-  State<_AppointmentsTabContent> createState() => _AppointmentsTabContentState();
+  State<_AppointmentsTabContent> createState() =>
+      _AppointmentsTabContentState();
 }
 
 class _AppointmentsTabContentState extends State<_AppointmentsTabContent> {
