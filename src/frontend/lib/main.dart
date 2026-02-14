@@ -1,6 +1,4 @@
-import 'package:bouh/View/Profile/CaregiverProfile.dart';
-import 'package:bouh/View/patient_test.dart';
-import 'package:bouh/theme/base_themes/colors.dart';
+import 'package:bouh/View/caregiverHomepage/caregivernavbar.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -13,9 +11,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: PatientTestPage(),
-    );
+    return MaterialApp(home: const CaregiverNavbar());
+    //return MaterialApp(home: const CaregiverAccountView());
   }
 }
