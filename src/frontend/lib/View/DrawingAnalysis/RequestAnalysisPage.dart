@@ -1,6 +1,6 @@
-import 'dart:math' as math;
 import 'package:bouh/View/DrawingAnalysis/DrawingHistoryPage.dart';
 import 'package:bouh/View/DrawingAnalysis/UploadDrawingPage.dart';
+import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/theme/base_themes/radius.dart';
@@ -9,7 +9,17 @@ import 'package:bouh/theme/base_themes/typography.dart';
 
 //First page for drawing analysis feature
 class RequestAnalysisPage extends StatefulWidget {
-  const RequestAnalysisPage({super.key});
+  const RequestAnalysisPage({
+    super.key,
+    this.currentIndex = 1,
+    this.onTap,
+  });
+
+  //Active bottom nav index (1 = drawings). Pass when used inside CaregiverNavbar.
+  final int currentIndex;
+
+  //Called when a bottom nav item is tapped. Pass when used inside CaregiverNavbar.
+  final ValueChanged<int>? onTap;
 
   @override
   State<RequestAnalysisPage> createState() => _RequestAnalysisPageState();
@@ -30,7 +40,6 @@ class _RequestAnalysisPageState extends State<RequestAnalysisPage> {
   //Main build
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -38,17 +47,15 @@ class _RequestAnalysisPageState extends State<RequestAnalysisPage> {
         body: Stack(
           clipBehavior: Clip.none,
           children: [
-            /// Decorative top wave (visual only).
+            //Decorative top image.
             Positioned(
-              top: -260,
-              left: -24,
-              child: Transform.rotate(
-                angle: 360 * math.pi / 183,
-                child: Image.asset(
-                  'assets/images/wave.jpg',
-                  width: w + 250,
-                  fit: BoxFit.cover,
-                ),
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Image.asset(
+                'assets/Images/wave_Draw.png',
+                width: double.infinity,
+                fit: BoxFit.cover,
               ),
             ),
             SafeArea(
@@ -71,6 +78,18 @@ class _RequestAnalysisPageState extends State<RequestAnalysisPage> {
               ),
             ),
           ],
+          
+        ),
+          bottomNavigationBar: Material(
+          clipBehavior: Clip.none,
+          color: Colors.transparent,
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: CaregiverBottomNav(
+              currentIndex: widget.currentIndex,
+              onTap: widget.onTap,
+            ),
+          ),
         ),
       ),
     );
