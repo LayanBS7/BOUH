@@ -51,7 +51,8 @@ class _AppointmentsTabContent extends StatefulWidget {
   final ValueChanged<int> onTap;
 
   @override
-  State<_AppointmentsTabContent> createState() => _AppointmentsTabContentState();
+  State<_AppointmentsTabContent> createState() =>
+      _AppointmentsTabContentState();
 }
 
 class _AppointmentsTabContentState extends State<_AppointmentsTabContent> {
