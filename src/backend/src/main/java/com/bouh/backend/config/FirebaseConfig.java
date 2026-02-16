@@ -12,39 +12,39 @@ import org.springframework.context.annotation.Configuration;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-@Configuration
+@Configuration //read by SB before running the tomcat server
 public class FirebaseConfig {
 
-    @Bean
+    @Bean //Firebase Application Instance to use any service by FB
     public FirebaseApp firebaseApp() throws IOException {
 
         if (!FirebaseApp.getApps().isEmpty()) {
-            return FirebaseApp.getInstance();
+            return FirebaseApp.getInstance(); //only create if not exist
         }
 
-        // Load .env
+        //Load .env
         Dotenv dotenv = Dotenv.configure()
                 .directory("./")
-                .ignoreIfMissing()
+                .ignoreIfMissing() //to prevent the server from crashing if not exist
                 .load();
 
         String credentialsPath = dotenv.get("FIREBASE_SERVICE_ACCOUNT_PATH");
 
         if (credentialsPath == null) {
-            throw new RuntimeException("FIREBASE_SERVICE_ACCOUNT_PATH not found in .env");
+            throw new RuntimeException("FIREBASE_SERVICE_ACCOUNT_PATH not found in .env"); //stop the exec if not exist, prevent app running with no database setted
         }
 
         FileInputStream serviceAccount = new FileInputStream(credentialsPath);
 
         FirebaseOptions options = FirebaseOptions.builder()
                 .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                .build();
+                .build(); //create the service account and trust it
 
-        return FirebaseApp.initializeApp(options);
+        return FirebaseApp.initializeApp(options); //run the instance
     }
 
     @Bean
     public Firestore firestore(FirebaseApp app) {
         return FirestoreClient.getFirestore(app);
-    }
+    } //making an instance available for the Dev env
 }
