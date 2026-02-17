@@ -1,4 +1,4 @@
-package com.bouh.backend.service.serviceImp;
+package com.bouh.backend.service;
 import com.bouh.backend.model.Dto.caregiverDto;
 import com.bouh.backend.model.repository.caregiverRepo;
 import org.springframework.stereotype.Service;
