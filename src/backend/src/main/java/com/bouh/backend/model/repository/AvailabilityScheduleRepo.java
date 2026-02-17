@@ -25,9 +25,7 @@ public class AvailabilityScheduleRepo {
 
     /**
      * Read slots for a given doctor and date.
-     *
-     * @return Optional.empty() if the day doc does not exist (meaning "no availability set")
-     */
+    */
     public List<Boolean> getSlotsForDay(String doctorId, String isoDate) {
 
             try {
@@ -38,7 +36,7 @@ public class AvailabilityScheduleRepo {
                 }
 
                 AvailabilityDayDto day =
-                        snap.toObject(AvailabilityDayDto.class);
+                        snap.toObject(AvailabilityDayDto.class); //utomatic mapping (converts it into AvailabilityDayDto)
 
                 return day != null ? day.getSlots() : null;
 
