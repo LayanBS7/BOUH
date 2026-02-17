@@ -41,6 +41,22 @@ public class AvailabilityScheduleService {
         return list;
     }
 
+    private void validateSlotList(List<Boolean> slots, String fieldName) {
+    if (slots == null) {
+        throw new IllegalStateException(fieldName + " cannot be null.");
+    }
+
+    if (slots.size() != TimeSlotConfig.SLOT_COUNT) {
+        throw new IllegalStateException(fieldName + " must have size " + TimeSlotConfig.SLOT_COUNT);
+    }
+}
+
+private void validateDateEditable(String isoDate) {
+    LocalDate d = LocalDate.parse(isoDate);
+    if (d.isBefore(today())) throw new IllegalStateException("Cannot edit past dates.");
+    if (d.isAfter(maxAllowed())) throw new IllegalStateException("Cannot edit beyond 2 months.");
+}
+
     /**
      * Get Doctor Availability Schedule (for a date range)
      *
@@ -57,11 +73,14 @@ public class AvailabilityScheduleService {
      *   "days": [
      *     {
      *       "date": "2026-02-17",
-     *       "slots": [true, false, true, false, false, false, false, false, false, false]
+     *       "doctorSlots": [true, false, true, false, false, false, false, false, false, false]
+     *       "bookedSlots": [true, false, false, false, false, false, false, false, false, false]
      *     },
      *     {
      *       "date": "2026-02-18",
-     *       "slots": [false, false, false, false, false, false, false, false, false, false]
+     *       "doctorSlots": [false, True, True, false, false, false, false, false, false, false]
+     *       "bookedSlots": [false, True, True, false, false, false, false, false, false, false]
+
      *     }
      *   ]
      * }
@@ -85,15 +104,20 @@ public class AvailabilityScheduleService {
             while (!cur.isAfter(to)) { //for every day between "from" and "to"
                 String date = cur.toString(); // yyyy-MM-dd
 
-                List<Boolean> slots = scheduleRepo.getSlotsForDay(doctorID, date); //call the repo to retireve the schedule from the database 
-                if (slots == null) { //in case there is nothing in firestore return null
-                    slots = defaultFalseSlots();
-                }
+                AvailabilityDayDto stored = scheduleRepo.getDay(doctorID, date); //call the repo to retireve the schedule from the database 
+                
+                List<Boolean> doctorSlots = (stored == null || stored.getDoctorSlots() == null)
+                    ? defaultFalseSlots()
+                    : stored.getDoctorSlots();
+                List<Boolean> bookedSlots = (stored == null || stored.getBookedSlots() == null)
+                    ? defaultFalseSlots()
+                    : stored.getBookedSlots();
 
             //do this for every day (it is inside the loop)
             AvailabilityDayDto day = new AvailabilityDayDto();
                 day.setDate(date);
-                day.setSlots(slots);
+                day.setDoctorSlots(doctorSlots);
+                day.setBookedSlots(bookedSlots);
 
                 response.getDays().add(day);
                 cur = cur.plusDays(1);    
@@ -112,6 +136,7 @@ public class AvailabilityScheduleService {
      *      - Contain exactly 10 slots (4 PM -> 9 PM)
      * - If document does not exist -> it will be created
      * - If document exists -> it will be updated (merge)
+     * - Doctor CANNOT change booked slots
      *
      * Example Request:
      *
@@ -119,7 +144,7 @@ public class AvailabilityScheduleService {
      *   "days": [
      *     {
      *       "date": "2026-02-20",
-     *       "slots": [true, true, false, false, false, false, false, false, false, false]
+     *       "doctorSlots": [True, True, True, false, false, false, false, false, false, false]
      *     }
      *   ]
      * }
@@ -127,9 +152,66 @@ public class AvailabilityScheduleService {
      * @response:
      *   HTTP 200 OK (no body)
      */
-    public void updateSchedule(String doctorID, AvailabilityScheduleDto request)
+    public void updateSchedule(String doctorID, AvailabilityDayUpdateDto request)
     {
-        scheduleRepo.update(doctorID, request.getDays());
+        if (request == null || request.getDays() == null || request.getDays().isEmpty()) {
+            throw new IllegalStateException("No days provided for update.");
+        }
+
+        List<AvailabilityDayDto> toWrite = new ArrayList<>();
+
+        // We will rewrite incoming days so bookedSlots are always preserved.
+        // Then we pass the cleaned days list to repo.batch update.
+        for (AvailabilityDayDto incoming : request.getDays()) {
+
+            // 1) Validate date window for edit
+            validateDateEditable(incoming.getDate());
+
+            // 2) Validate doctorSlots shape
+            validateSlotList(incoming.getDoctorSlots(), "doctorSlots");
+
+            // 3) Read existing from DB (to know what is booked)
+            AvailabilityDayDto existing = scheduleRepo.getDay(doctorID, incoming.getDate());
+
+            List<Boolean> existingBooked = (existing == null || existing.getBookedSlots() == null)
+                    ? defaultFalseSlots()
+                    : existing.getBookedSlots();
+
+            List<Boolean> existingDoctor = (existing == null || existing.getDoctorSlots() == null)
+                    ? defaultFalseSlots()
+                    : existing.getDoctorSlots();
+
+            // Ensure sizes correct
+            if (existingBooked.size() != TimeSlotConfig.SLOT_COUNT) existingBooked = defaultFalseSlots();
+            if (existingDoctor.size() != TimeSlotConfig.SLOT_COUNT) existingDoctor = defaultFalseSlots();
+
+            // 4) Block doctor from changing any slot that is already booked
+            // Meaning: if bookedSlots[i] == true, doctorSlots[i] must remain the same as before.
+            for (int i = 0; i < TimeSlotConfig.SLOT_COUNT; i++) {
+                if (Boolean.TRUE.equals(existingBooked.get(i))) {
+                    boolean oldValue = Boolean.TRUE.equals(existingDoctor.get(i));
+                    boolean newValue = Boolean.TRUE.equals(incoming.getDoctorSlots().get(i));
+
+                    if (oldValue != newValue) {
+                        throw new IllegalStateException(
+                                "Cannot change a booked slot. date=" + incoming.getDate() + ", index=" + i
+                        );
+                    }
+                }
+            }
+
+            // 5) Build the day doc to write:
+            // - doctorSlots = incoming doctorSlots
+            // - bookedSlots = preserved from DB
+            AvailabilityDayDto merged = new AvailabilityDayDto();
+            merged.setDate(incoming.getDate());
+            merged.setDoctorSlots(incoming.getDoctorSlots());
+            merged.setBookedSlots(existingBooked);
+
+            toWrite.add(merged);
+        }
+
+        scheduleRepo.update(doctorID, toWrite);
 
     }
 }

@@ -24,26 +24,23 @@ public class AvailabilityScheduleRepo {
     }
 
     /**
-     * Read slots for a given doctor and date.
+     * Read booked and doctor slots for a given doctor and date.
     */
-    public List<Boolean> getSlotsForDay(String doctorId, String isoDate) {
+    public AvailabilityDayDto getDay(String doctorId, String isoDate) {
+        try {
+            DocumentSnapshot snap = dayDoc(doctorId, isoDate).get().get();
 
-            try {
-                DocumentSnapshot snap = dayDoc(doctorId, isoDate).get().get();
-
-                if (!snap.exists()) {
-                    return null; // no availability set for this day
-                }
-
-                AvailabilityDayDto day =
-                        snap.toObject(AvailabilityDayDto.class); //utomatic mapping (converts it into AvailabilityDayDto)
-
-                return day != null ? day.getSlots() : null;
-
-            } catch (Exception e) {
-                throw new RuntimeException("Error reading availability", e);
+            if (!snap.exists()) {
+                return null; // no doc for this day
             }
+
+            return snap.toObject(AvailabilityDayDto.class);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error reading availability day", e);
         }
+    }
+
 
 
 

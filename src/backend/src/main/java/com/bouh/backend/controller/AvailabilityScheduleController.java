@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bouh.backend.model.Dto.AvailabilitySchedule.AvailabilityScheculeUpdateDto;
 import com.bouh.backend.model.Dto.AvailabilitySchedule.AvailabilityScheduleDto;
 import com.bouh.backend.service.AvailabilityScheduleService;
 
@@ -35,7 +36,7 @@ public class AvailabilityScheduleController {
     @PutMapping
     public ResponseEntity<?> update(
         @PathVariable String doctorID,
-        @RequestBody AvailabilityScheduleDto request
+        @RequestBody AvailabilityScheculeUpdateDto request
     )
     {
         scheduleService.updateSchedule(doctorID, request);
