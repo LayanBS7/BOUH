@@ -8,6 +8,6 @@ import java.util.List;
  * Used by PUT endpoint.
  */
 @Data
-public class AvailabilityScheculeUpdateDto {
-    private List<AvailabilityDayUpdateDayDto> days;
+public class AvailabilityScheduleUpdateDto {
+    private List<AvailabilityDayUpdateDto> days;
 }
