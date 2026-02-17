@@ -9,5 +9,6 @@ import java.util.List;
 @Data
 public class AvailabilityDayDto {
     private String date;
-    private List<Boolean> slots;
+    private List<Boolean> doctorSlots;
+    private List<Boolean> bookedSlots;
 }
