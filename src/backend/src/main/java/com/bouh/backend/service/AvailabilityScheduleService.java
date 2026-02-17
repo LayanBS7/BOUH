@@ -52,10 +52,17 @@ public class AvailabilityScheduleService {
 }
 
 private void validateDateEditable(String isoDate) {
-    LocalDate d = LocalDate.parse(isoDate);
+    if (isoDate == null) throw new IllegalStateException("date cannot be null.");
+    LocalDate d;
+    try {
+        d = LocalDate.parse(isoDate); // expects yyyy-MM-dd
+    } catch (Exception e) {
+        throw new IllegalStateException("Invalid date format (expected yyyy-MM-dd).");
+    }
     if (d.isBefore(today())) throw new IllegalStateException("Cannot edit past dates.");
     if (d.isAfter(maxAllowed())) throw new IllegalStateException("Cannot edit beyond 2 months.");
 }
+
 
     /**
      * Get Doctor Availability Schedule (for a date range)
@@ -152,7 +159,7 @@ private void validateDateEditable(String isoDate) {
      * @response:
      *   HTTP 200 OK (no body)
      */
-    public void updateSchedule(String doctorID, AvailabilityDayUpdateDto request)
+    public void updateSchedule(String doctorID, AvailabilityScheduleUpdateDto request)
     {
         if (request == null || request.getDays() == null || request.getDays().isEmpty()) {
             throw new IllegalStateException("No days provided for update.");
@@ -162,7 +169,7 @@ private void validateDateEditable(String isoDate) {
 
         // We will rewrite incoming days so bookedSlots are always preserved.
         // Then we pass the cleaned days list to repo.batch update.
-        for (AvailabilityDayDto incoming : request.getDays()) {
+        for (AvailabilityDayUpdateDto incoming : request.getDays()) {
 
             // 1) Validate date window for edit
             validateDateEditable(incoming.getDate());
@@ -180,10 +187,6 @@ private void validateDateEditable(String isoDate) {
             List<Boolean> existingDoctor = (existing == null || existing.getDoctorSlots() == null)
                     ? defaultFalseSlots()
                     : existing.getDoctorSlots();
-
-            // Ensure sizes correct
-            if (existingBooked.size() != TimeSlotConfig.SLOT_COUNT) existingBooked = defaultFalseSlots();
-            if (existingDoctor.size() != TimeSlotConfig.SLOT_COUNT) existingDoctor = defaultFalseSlots();
 
             // 4) Block doctor from changing any slot that is already booked
             // Meaning: if bookedSlots[i] == true, doctorSlots[i] must remain the same as before.
