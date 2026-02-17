@@ -14,7 +14,7 @@ import java.util.List;
  * JSON shape:
  * {
  *   "days": [
- *     { "date": "01-02-2026", "slots": [true,false,...] },
+ *     { "date": "2026-02-01", "slots": [true,false,...] },
  *     ...
  *   ]
  * }
