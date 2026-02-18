@@ -52,17 +52,20 @@ public class AvailabilityScheduleService {
 }
 
 private void validateDateEditable(String isoDate) {
-    if (isoDate == null) throw new IllegalStateException("date cannot be null.");
+    if (isoDate == null) {
+        throw new IllegalStateException("date cannot be null.");
+    }
+
     LocalDate d;
     try {
         d = LocalDate.parse(isoDate); // expects yyyy-MM-dd
     } catch (Exception e) {
-        throw new IllegalStateException("Invalid date format (expected yyyy-MM-dd).");
+        throw new IllegalStateException("Invalid date format. Expected yyyy-MM-dd.");
     }
+
     if (d.isBefore(today())) throw new IllegalStateException("Cannot edit past dates.");
     if (d.isAfter(maxAllowed())) throw new IllegalStateException("Cannot edit beyond 2 months.");
 }
-
 
     /**
      * Get Doctor Availability Schedule (for a date range)
@@ -188,6 +191,10 @@ private void validateDateEditable(String isoDate) {
                     ? defaultFalseSlots()
                     : existing.getDoctorSlots();
 
+            // Ensure sizes correct
+            if (existingBooked.size() != TimeSlotConfig.SLOT_COUNT) existingBooked = defaultFalseSlots();
+            if (existingDoctor.size() != TimeSlotConfig.SLOT_COUNT) existingDoctor = defaultFalseSlots();
+
             // 4) Block doctor from changing any slot that is already booked
             // Meaning: if bookedSlots[i] == true, doctorSlots[i] must remain the same as before.
             for (int i = 0; i < TimeSlotConfig.SLOT_COUNT; i++) {
@@ -203,7 +210,7 @@ private void validateDateEditable(String isoDate) {
                 }
             }
 
-            // 5) Build the day doc to write:
+             // 5) Build the day doc to write:
             // - doctorSlots = incoming doctorSlots
             // - bookedSlots = preserved from DB
             AvailabilityDayDto merged = new AvailabilityDayDto();
