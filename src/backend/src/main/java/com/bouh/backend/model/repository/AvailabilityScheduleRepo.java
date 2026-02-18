@@ -42,8 +42,6 @@ public class AvailabilityScheduleRepo {
     }
 
 
-
-
     /**
      * Update multiple days at once.
      *
