@@ -4,11 +4,9 @@ import lombok.Data;
 import java.util.List;
 /**
  * Represents availability of a single day.
- * slots: List<Boolean> size = 10
  */
 @Data
 public class AvailabilityDayDto {
     private String date;
-    private List<Boolean> doctorSlots;
-    private List<Boolean> bookedSlots;
+    private List<AvailabilityStoredSlotDto> slots; 
 }
