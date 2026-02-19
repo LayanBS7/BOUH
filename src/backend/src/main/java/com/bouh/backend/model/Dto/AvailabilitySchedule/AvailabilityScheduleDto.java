@@ -4,20 +4,9 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * Represents a schedule (multiple days).
+ * Represents schedule for a date range (multiple days).
  *
- * IMPORTANT:
- * - We use this DTO for BOTH:
- *   1) GET response (server -> frontend)
- *   2) PUT request  (frontend -> server)
- *
- * JSON shape:
- * {
- *   "days": [
- *     { "date": "2026-02-01", "slots": [true,false,...] },
- *     ...
- *   ]
- * }
+ * Used as GET response.
  */
 @Data
 public class AvailabilityScheduleDto {
