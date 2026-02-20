@@ -37,6 +37,7 @@ class AppointmentCard extends StatelessWidget {
     this.profileImage,
     this.actionLabel,
     this.actionColor,
+    this.onActionTap,
   });
 
   /// Full name of the doctor.
@@ -62,6 +63,9 @@ class AppointmentCard extends StatelessWidget {
 
   /// Optional action button background color. Default: [BColors.accent].
   final Color? actionColor;
+
+  /// Optional: called when the action button is tapped (e.g. open meeting link for انضمام).
+  final VoidCallback? onActionTap;
 
   // --- Layout constants (must match original card exactly) ---
   static const double _cardRadius = 16;
@@ -259,7 +263,7 @@ class AppointmentCard extends StatelessWidget {
   Widget _buildJoinButton() {
     final label = actionLabel ?? 'انضمام';
     final color = actionColor ?? BColors.accent;
-    return Container(
+    final child = Container(
       width: _joinButtonWidth,
       height: _joinButtonHeight,
       decoration: BoxDecoration(
@@ -277,6 +281,14 @@ class AppointmentCard extends StatelessWidget {
         ),
       ),
     );
+    if (onActionTap != null) {
+      return GestureDetector(
+        onTap: onActionTap,
+        behavior: HitTestBehavior.opaque,
+        child: child,
+      );
+    }
+    return child;
   }
 }
 
