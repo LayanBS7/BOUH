@@ -1,8 +1,8 @@
 package com.bouh.backend.controller.payment;
 
-import com.bouh.backend.model.payment.PaymentRequestDto;
-import com.bouh.backend.model.payment.PaymentResponseDto;
-import com.bouh.backend.service.serviceInterface.payment.PaymentService;
+import com.bouh.backend.model.Dto.payment.PaymentRequestDto;
+import com.bouh.backend.model.Dto.payment.PaymentResponseDto;
+import com.bouh.backend.service.payment.PaymentService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
