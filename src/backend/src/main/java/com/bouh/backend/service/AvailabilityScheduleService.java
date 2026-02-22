@@ -76,7 +76,7 @@ public class AvailabilityScheduleService {
      * - Returns every day in [from..to] inclusive
      * - Each day contains ONLY offered slots (may be empty list)
      * - Missing day doc => slots=[]
-     * - We do a single query to fetch all existing docs for performance ✅
+     * - We do a single query to fetch all existing docs for performance 
      *
      * Example:
      * GET window from=2026-02-01 to=2026-03-31
@@ -113,7 +113,7 @@ public class AvailabilityScheduleService {
                 scheduleRepo.getDaysInRangeMap(doctorID, from.toString(), to.toString());
 
             AvailabilityScheduleDto response = new AvailabilityScheduleDto();
-            response.setDays(new ArrayList<>());
+             response.setDays(new ArrayList<>(storedByDate.values()));
 
             LocalDate cur=from;
             while(!cur.isAfter(to))
@@ -177,27 +177,30 @@ public class AvailabilityScheduleService {
      * - 400/500 with message if validation fails (e.g., removing a booked slot)
      */
 
-    public void updateSchedule(String doctorID, AvailabilityScheduleUpdateDto request)
-    {
+    public void updateSchedule(String doctorID, AvailabilityScheduleUpdateDto request) {
+
         if (request == null || request.getDays() == null || request.getDays().isEmpty()) {
             throw new IllegalStateException("No days provided for update.");
         }
 
-        // Map key = date docId, value = day object (slots only)
+        // collect all dates first
+        List<String> dates = new ArrayList<>();
+        for (AvailabilityDayUpdateDto d : request.getDays()) {
+            validateDateEditable(d.getDate());
+            validateIndexes(d.getOfferedSlotIndexes());
+            dates.add(d.getDate());
+        }
+
+        // single Firestore call instead of N calls
+        Map<String, AvailabilityDayDto> existingByDate = scheduleRepo.getDaysByDates(doctorID, dates);
+
         Map<String, AvailabilityDayDto> toWrite = new HashMap<>();
+        Set<String> toDelete = new HashSet<>();
 
         for (AvailabilityDayUpdateDto incoming : request.getDays()) {
 
-            // 1) Validate date window for edit
-            validateDateEditable(incoming.getDate());
+            AvailabilityDayDto existing = existingByDate.get(incoming.getDate());
 
-            // 2) Validate slots
-            validateIndexes(incoming.getOfferedSlotIndexes());
-
-            // 3) Read existing from DB (to know what is booked)
-            AvailabilityDayDto existing = scheduleRepo.getDay(doctorID, incoming.getDate());
-
-            // build map index -> booked for existing offered slots
             Map<Integer, Boolean> existingBooked = new HashMap<>();
             if (existing != null && existing.getSlots() != null) {
                 for (AvailabilityStoredSlotDto s : existing.getSlots()) {
@@ -205,37 +208,35 @@ public class AvailabilityScheduleService {
                 }
             }
 
-        
-            // 4) Block doctor from changing any slot that is already booked
+            // prevent removing booked
             for (Map.Entry<Integer, Boolean> e : existingBooked.entrySet()) {
                 int idx = e.getKey();
                 boolean booked = Boolean.TRUE.equals(e.getValue());
-
                 if (booked && !incoming.getOfferedSlotIndexes().contains(idx)) {
                     throw new IllegalStateException(
-                            "Cannot remove a booked slot. date=" + incoming.getDate() + ", index=" + idx
+                        "Cannot remove a booked slot. date=" + incoming.getDate() + ", index=" + idx
                     );
                 }
             }
 
-             // 5) Build the new offered slots list:
-            // - if a slot was booked before, keep booked=true
-            // - otherwise booked=false
-             List<AvailabilityStoredSlotDto> newSlots = new ArrayList<>();
+            if (incoming.getOfferedSlotIndexes().isEmpty()) {
+                toDelete.add(incoming.getDate());
+                continue;
+            }
+
+            List<AvailabilityStoredSlotDto> newSlots = new ArrayList<>();
             for (int idx : incoming.getOfferedSlotIndexes()) {
                 AvailabilityStoredSlotDto s = new AvailabilityStoredSlotDto();
                 s.setIndex(idx);
                 s.setBooked(Boolean.TRUE.equals(existingBooked.get(idx)));
                 newSlots.add(s);
             }
-            
+
             AvailabilityDayDto dayToStore = new AvailabilityDayDto();
             dayToStore.setSlots(newSlots);
-
             toWrite.put(incoming.getDate(), dayToStore);
         }
 
-        scheduleRepo.update(doctorID, toWrite);
-
+        scheduleRepo.update(doctorID, toWrite, toDelete);
     }
 }
