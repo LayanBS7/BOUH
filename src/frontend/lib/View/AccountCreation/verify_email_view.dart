@@ -33,7 +33,7 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _sendVerificationEmail(
         force: true,
-        messageOnSuccess: 'تم إرسال رابط التحقق إلى بريدك الإلكتروني.',
+        messageOnSuccess: 'تم إرسال رابط التحقق إلى بريدك الإلكتروني، يرجى تفعيل حسابك عبر الرابط المرسل إليك، وفي حال عدم وصوله تحقق من البريد غير المرغوب فيه.',
         messageColorOnSuccess: BColors.darkGrey,
       );
     });
