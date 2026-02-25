@@ -2,6 +2,8 @@ import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/View/Profile/ChildrenManagementView.dart';
 import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
+import 'package:bouh/authentication/AuthService.dart';
+import 'package:bouh/View/Login/login_view.dart';
 
 class CaregiverAccountView extends StatelessWidget {
   const CaregiverAccountView({
@@ -43,7 +45,9 @@ class CaregiverAccountView extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 10, left: 16),
                       child: Align(
                         alignment: Alignment.topLeft,
-                        child: _LogoutButton(onTap: () {}),
+                      child: _LogoutButton(
+                        onTap: () => _handleLogout(context),
+                      ),
                       ),
                     ),
                   ),
@@ -177,6 +181,15 @@ class CaregiverAccountView extends StatelessWidget {
               )
             : null,
       ),
+    );
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
+    await AuthService.instance.signOut();
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginView()),
+      (route) => false,
     );
   }
 
