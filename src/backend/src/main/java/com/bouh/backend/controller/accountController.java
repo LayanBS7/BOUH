@@ -56,7 +56,6 @@ public class accountController {
             return ResponseEntity.ok(
                     accountService.resolveAuthState(uid)
             );
-
         } catch (Exception e) {
             log.error("Failed to resolve role", e);
             return ResponseEntity

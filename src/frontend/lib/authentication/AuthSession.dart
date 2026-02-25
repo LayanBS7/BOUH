@@ -43,8 +43,9 @@ class AuthSession {
   }
 
   //Backend login: set session from response { uid, role }. Only place role is set. Keeps existing idToken if set (e.g. after Firebase login).
+  // role: 'doctor' | 'caregiver' | 'pending' (pending = doctor with registrationStatus PENDING).
   Future<void> setSessionFromBackend({required String uid, required String role}) async {
-    if (role != 'doctor' && role != 'caregiver') return;
+    if (role != 'doctor' && role != 'caregiver' && role != 'pending') return;
     _userId = uid;
     _role = role;
     //keep _idToken so API calls can still use Bearer token

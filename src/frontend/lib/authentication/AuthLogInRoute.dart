@@ -1,7 +1,6 @@
-import 'package:bouh/dto/doctorDto.dart';
-import 'package:bouh/widgets/doctor_pending_popup.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/View/HomePage/doctorHomePage.dart';
+import 'package:bouh/View/Login/login_view.dart';
 import 'package:bouh/View/WelcomePage/splash_view.dart';
 import 'package:bouh/View/WelcomePage/welcomePage_view.dart';
 import 'package:bouh/View/caregiverHomepage/caregivernavbar.dart';
@@ -24,6 +23,7 @@ class _LoginResolverViewState extends State<LoginResolverView> {
 
   Future<void> _resolve() async {
     final role = await AuthService.instance.role;
+
     if (!mounted) return;
     switch (role) {
       case 'doctor':
@@ -38,7 +38,7 @@ class _LoginResolverViewState extends State<LoginResolverView> {
         break;
       case 'pending':
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DoctorPendingPopup()),
+          MaterialPageRoute(builder: (_) => const LoginView(showPendingDoctorDialog: true)),
         );
         break;
       default:

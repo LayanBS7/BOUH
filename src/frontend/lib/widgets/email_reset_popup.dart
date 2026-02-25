@@ -1,11 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 
 /// Reusable popup for the user to enter an email (e.g. for reset password).
-/// On submit, [onSubmit] is called with the trimmed email. The dialog closes on success.
-/// [onSubmit] should throw or show error if the request fails; the popup shows loading
-/// and closes only when [onSubmit] completes without throwing.
+/// On submit, [onSubmit] is called with the trimmed email. Returns null on success,
+/// or an error message string to show. The dialog closes only when [onSubmit] returns null.
 class EmailResetPopup extends StatefulWidget {
   const EmailResetPopup({
     super.key,
@@ -20,17 +18,18 @@ class EmailResetPopup extends StatefulWidget {
   final String hint;
   final String submitText;
   final String cancelText;
-  final Future<void> Function(String email) onSubmit;
+  /// Returns null on success, or error message to display (popup stays open so user can resend).
+  final Future<String?> Function(String email) onSubmit;
 
-  /// Shows the email reset dialog. [onSubmit] is called with the entered email
-  /// when the user taps submit. Returns `true` if submitted successfully, `false` if cancelled.
+  /// Shows the email reset dialog. [onSubmit] is called with the entered email when the user taps submit.
+  /// Returns `true` if submitted successfully, `false` if cancelled.
   static Future<bool> show(
     BuildContext context, {
     String title = 'استعادة كلمة المرور',
     String hint = 'البريد الإلكتروني',
     String submitText = 'إرسال',
     String cancelText = 'إلغاء',
-    required Future<void> Function(String email) onSubmit,
+    required Future<String?> Function(String email) onSubmit,
   }) async {
     final result = await showDialog<bool>(
       context: context,
@@ -69,26 +68,29 @@ class _EmailResetPopupState extends State<EmailResetPopup> {
     super.dispose();
   }
 
-Future<void> _handleSubmit() async {
-  if (!(_formKey.currentState?.validate() ?? false)) return;
+  Future<void> _handleSubmit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-  setState(() => _loading = true);
-
-  final errorMessage =
-      await widget.onSubmit(_emailCtrl.text);
-
-  if (!mounted) return;
-
-  setState(() => _loading = false);
-
-  if (_errorMessage == null) {
-    Navigator.of(context).pop(true); // success
-  } else {
     setState(() {
-      _errorMessage = errorMessage as String?;
+      _loading = true;
+      _errorMessage = null;
     });
+
+    final email = _emailCtrl.text.trim();
+    final result = await widget.onSubmit(email);
+
+    if (!mounted) return;
+
+    setState(() {
+      _loading = false;
+      _errorMessage = result;
+    });
+
+    if (result == null) {
+      Navigator.of(context).pop(true); // success
+    }
+    // else: keep dialog open, show _errorMessage so user can fix and resend
   }
-}
 
   @override
   Widget build(BuildContext context) {

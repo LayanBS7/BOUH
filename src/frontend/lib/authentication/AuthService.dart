@@ -7,10 +7,7 @@ import '../dto/doctorDto.dart';
 import 'AuthSession.dart';
 
 /// Auth service:
-/// - login / logout
-/// - reset password
-/// - create accounts
-/// - register profiles on backend
+/// login / logout , reset password , create accounts, register profiles on backend
 class AuthService {
   AuthService._();
 
@@ -75,6 +72,8 @@ class AuthService {
           return 'صيغة البريد الإلكتروني غير صحيحة.';
         case 'user-not-found':
           return 'لا يوجد حساب مسجل بهذا البريد الإلكتروني.';
+        case 'too-many-requests':
+          return 'تم تجاوز عدد المحاولات. انتظر دقيقة ثم اضغط إرسال مرة أخرى.';
         default:
           return 'تعذر إرسال رابط استعادة كلمة المرور.';
       }
@@ -177,15 +176,16 @@ class AuthService {
 
     final map = jsonDecode(response.body) as Map<String, dynamic>;
     final role = map['role'] as String?;
-    final registrationStatus = map['registrationStatus'] as String?; //doctor registration status
-
-    if (role == 'doctor' && registrationStatus == 'PENDING') {
-    return 'pending';}
+    final registrationStatus = map['registrationStatus'] as String?;
 
     if (role == null || (role != 'doctor' && role != 'caregiver')) {
       throw Exception('Invalid role from backend: $role');
     }
 
+    // Doctor with PENDING registration
+    if (role == 'doctor' && registrationStatus == 'PENDING') {
+      return 'pending';
+    }
     return role;
   }
 

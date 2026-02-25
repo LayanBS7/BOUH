@@ -1,6 +1,7 @@
 import 'dart:io' show SocketException;
 import 'dart:math' as math;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bouh/authentication/AuthLogInRoute.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
@@ -9,6 +10,7 @@ import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/View/caregiverHomepage/caregivernavbar.dart';
 import 'package:bouh/View/HomePage/doctorHomePage.dart';
 import 'package:bouh/widgets/email_reset_popup.dart';
+import 'package:bouh/widgets/doctor_pending_popup.dart';
 
 /// Login: validate form → AuthService.login(email, password) → backend returns uid, role → route by role.
 class LoginView extends StatefulWidget {
@@ -17,11 +19,14 @@ class LoginView extends StatefulWidget {
     this.onLogin,
     this.onForgotPassword,
     this.onCreateAccount,
+    this.showPendingDoctorDialog = false,
   });
 
   final Future<void> Function(String email, String password)? onLogin;
   final VoidCallback? onForgotPassword;
   final VoidCallback? onCreateAccount;
+  /// When true, shows the pending-doctor popup on top of login; «حسنا» routes to welcome.
+  final bool showPendingDoctorDialog;
 
   @override
   State<LoginView> createState() => _LoginViewState();
@@ -71,6 +76,24 @@ class _LoginViewState extends State<LoginView> {
         if (mounted) setState(() {});
       }
     });
+    if (widget.showPendingDoctorDialog) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => DoctorPendingPopup(
+            onOk: () {
+              Navigator.pop(dialogContext);
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const AccountTypeView()),
+                (route) => false,
+              );
+            },
+          ),
+        );
+      });
+    }
   }
 
   @override
@@ -97,13 +120,18 @@ Future<void> _handleLogin() async {
   final email = _emailCtrl.text.trim();
   final password = _passwordCtrl.text;
 
+  // Check email format again before calling login (so wrong format never gets mistaken for network).
+  final emailFormatError = _validateEmail(email);
+  if (emailFormatError != null) {
+    setState(() => _emailError = emailFormatError);
+    return;
+  }
+
   try {
-    //Login
     await AuthService.instance.login(email: email, password: password);
 
     if (!mounted) return;
 
-    //Resolve route from session role set by backend at login
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const LoginResolverView()),
     );
@@ -111,17 +139,35 @@ Future<void> _handleLogin() async {
   } on SocketException {
     if (!mounted) return;
     setState(() {
-          'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
+      _passwordError = 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
     });
-
+  } on FirebaseAuthException catch (e) {
+    if (!mounted) return;
+    setState(() {
+      switch (e.code) {
+        case 'invalid-email':
+        case 'invalid-credential':
+          _emailError = 'صيغة البريد الإلكتروني غير صحيحة أو الحساب غير موجود.';
+          _passwordError = null;
+          break;
+        case 'user-not-found':
+        case 'wrong-password':
+        case 'invalid-login-credentials':
+          _emailError = null;
+          _passwordError = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+          break;
+        default:
+          _passwordError = _mapLoginErrorToMessage(e);
+      }
+    });
   } catch (e) {
     if (!mounted) return;
-
     setState(() {
       _passwordError = _mapLoginErrorToMessage(e);
     });
   }
 }
+
 String _mapLoginErrorToMessage(Object e) {
   final msg = e.toString();
 
@@ -129,9 +175,11 @@ String _mapLoginErrorToMessage(Object e) {
     return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
   }
 
-  if (msg.contains('Socket') ||
-      msg.contains('Connection') ||
-      msg.contains('Network')) {
+  // Only treat as network error for real I/O / socket errors, not for auth errors that might mention "connection".
+  if (e is SocketException) {
+    return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
+  }
+  if (msg.contains('SocketException') || msg.contains('Failed host lookup')) {
     return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
   }
 
@@ -145,9 +193,7 @@ String _mapLoginErrorToMessage(Object e) {
     }
     EmailResetPopup.show(
       context,
-      onSubmit: (email) async {
-        await AuthService.instance.sendPasswordResetEmail(email: email);
-      },
+      onSubmit: (email) => AuthService.instance.sendPasswordResetEmail(email: email),
     ).then((submitted) {
       if (submitted && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
