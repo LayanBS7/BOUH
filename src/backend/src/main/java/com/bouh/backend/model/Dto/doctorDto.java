@@ -3,17 +3,18 @@ import com.google.cloud.firestore.annotation.DocumentId;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.List;
+/**
+ * DTO for reading doctor data from Firestore collection "doctors" (document by doctorId).
+ * Source: doctors/{doctorId} — fields name, areaOfKnowledge, profilePhotoURL.
+ * Used by DoctorRepo.findById to supply doctor info when building upcoming appointment response.
+ */
 
 @Data //setters,getters
 @NoArgsConstructor
 @AllArgsConstructor
-
 public class doctorDto {
     @DocumentId
     private String doctorId;
-
-    private String doctorID;
     private String name;
     private String email;
     private String gender;
