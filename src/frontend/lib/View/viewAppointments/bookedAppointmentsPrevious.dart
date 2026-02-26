@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
 import '../../theme/base_themes/colors.dart';
 import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
+import 'package:bouh/dto/upcomingAppointmentDto.dart';
+import 'package:bouh/services/appointmentsService.dart';
 import 'widgets/previousBookedAppointmentCard.dart';
 
-/// Booked appointments – previous
+/// Booked appointments – previous.
 ///
-/// Same layout as other appointment pages: title, top segmented control
-/// (محجوزة active), secondary buttons (السابقة active). List of
-/// [PreviousBookedAppointmentCard] for past appointments with attendance status.
-class BookedAppointmentsPrevious extends StatelessWidget {
+/// Same structure and data model as Upcoming: uses [UpcomingAppointmentDto],
+/// loads via [AppointmentsService.getPreviousAppointments]. Status displayed as
+/// Attended (تم الحضور) / Absent (لم يتم الحضور).
+class BookedAppointmentsPrevious extends StatefulWidget {
   const BookedAppointmentsPrevious({
     super.key,
+    this.caregiverId,
     this.currentIndex = 2,
     this.onTap,
     this.onSwitchToAvailable,
     this.onSwitchToUpcoming,
   });
+
+  /// When set, previous appointments are loaded from backend for this caregiver.
+  final String? caregiverId;
 
   final int currentIndex;
   final ValueChanged<int>? onTap;
@@ -25,6 +31,69 @@ class BookedAppointmentsPrevious extends StatelessWidget {
 
   /// Called when user taps "القادمة" in the filter bar. Optional.
   final VoidCallback? onSwitchToUpcoming;
+
+  @override
+  State<BookedAppointmentsPrevious> createState() =>
+      _BookedAppointmentsPreviousState();
+}
+
+class _BookedAppointmentsPreviousState
+    extends State<BookedAppointmentsPrevious> {
+  List<UpcomingAppointmentDto> _list = [];
+  bool _loading = false;
+  String? _error;
+
+  final AppointmentsService _appointmentsService = AppointmentsService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadIfCaregiverSet(widget.caregiverId);
+  }
+
+  @override
+  void didUpdateWidget(BookedAppointmentsPrevious oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.caregiverId != widget.caregiverId) {
+      _loadIfCaregiverSet(widget.caregiverId);
+    }
+  }
+
+  void _loadIfCaregiverSet(String? caregiverId) {
+    if (caregiverId == null || caregiverId.isEmpty) {
+      setState(() {
+        _list = [];
+        _error = null;
+        _loading = false;
+      });
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+      _list = [];
+    });
+    _appointmentsService
+        .getPreviousAppointments(caregiverId)
+        .then((list) {
+          if (mounted) {
+            setState(() {
+              _list = list;
+              _loading = false;
+              _error = null;
+            });
+          }
+        })
+        .catchError((e) {
+          if (mounted) {
+            setState(() {
+              _error = e.toString();
+              _list = [];
+              _loading = false;
+            });
+          }
+        });
+  }
 
   static const double _titleTopPadding = 24;
   static const double _titleBottomPadding = 24;
@@ -84,8 +153,8 @@ class BookedAppointmentsPrevious extends StatelessWidget {
           child: Directionality(
             textDirection: TextDirection.rtl,
             child: CaregiverBottomNav(
-              currentIndex: currentIndex,
-              onTap: onTap ?? (_) {},
+              currentIndex: widget.currentIndex,
+              onTap: widget.onTap ?? (_) {},
             ),
           ),
         ),
@@ -125,7 +194,7 @@ class BookedAppointmentsPrevious extends StatelessWidget {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: onSwitchToAvailable,
+              onTap: widget.onSwitchToAvailable,
               behavior: HitTestBehavior.opaque,
               child: _buildSegment(label: 'متاحة', active: false),
             ),
@@ -172,7 +241,7 @@ class BookedAppointmentsPrevious extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         GestureDetector(
-          onTap: onSwitchToUpcoming,
+          onTap: widget.onSwitchToUpcoming,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
             width: _filterButtonWidth,
@@ -221,28 +290,79 @@ class BookedAppointmentsPrevious extends StatelessWidget {
   }
 
   Widget _buildCardList() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Text(_error!);
+    }
+    if (_list.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'لا توجد مواعيد سابقة',
+            style: TextStyle(
+              fontFamily: 'Markazi Text',
+              fontSize: 16,
+              color: BColors.darkGrey,
+            ),
+          ),
+        ),
+      );
+    }
+    final children = <Widget>[];
+    for (var i = 0; i < _list.length; i++) {
+      if (i > 0) children.add(const SizedBox(height: _cardGap));
+      children.add(_buildCardFor(_list[i]));
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: const [
-        PreviousBookedAppointmentCard(
-          doctorName: 'د. احمد القحطاني',
-          specialty: 'التعامل مع العزلة',
-          childName: 'خزامی',
-          date: '10/12/2025',
-          time: '8:00 مساءً',
-          attendanceStatus: 'تم الحضور',
-          rating: 4,
-        ),
-        SizedBox(height: _cardGap),
-        PreviousBookedAppointmentCard(
-          doctorName: 'د. علي آل يحيى',
-          specialty: 'علاقات اجتماعية واسرة',
-          childName: 'خزامی',
-          date: '10/12/2025',
-          time: '8:00 مساءً',
-          attendanceStatus: 'لم يتم الحضور',
-        ),
-      ],
+      children: children,
     );
+  }
+
+  Widget _buildCardFor(UpcomingAppointmentDto dto) {
+    final dateStr = _formatDate(dto.date);
+    final timeStr = _formatTimeRange(dto.startTime, dto.endTime);
+    ImageProvider? profileImage;
+    if (dto.doctorProfilePhotoURL != null &&
+        dto.doctorProfilePhotoURL!.isNotEmpty) {
+      profileImage = NetworkImage(dto.doctorProfilePhotoURL!);
+    }
+    final attendanceStatus = _statusToDisplay(dto.status);
+    return PreviousBookedAppointmentCard(
+      doctorName: dto.doctorName ?? '',
+      specialty: dto.doctorAreaOfKnowledge ?? '',
+      childName: dto.childName ?? '',
+      date: dateStr,
+      time: timeStr,
+      profileImage: profileImage,
+      attendanceStatus: attendanceStatus,
+      rating: null,
+    );
+  }
+
+  static String _statusToDisplay(int? status) {
+    return status == 1 ? 'تم الحضور' : 'لم يتم الحضور';
+  }
+
+  static String _formatDate(String date) {
+    final parts = date.split('-');
+    if (parts.length != 3) return date;
+    final y = parts[0];
+    final m = parts[1];
+    final d = parts[2];
+    return '$d/$m/$y';
+  }
+
+  /// Format startTime and endTime for display.
+  static String _formatTimeRange(String? start, String? end) {
+    const suffix = 'مساءً';
+    final s = start ?? '';
+    final e = end ?? '';
+    if (s.isEmpty && e.isEmpty) return '';
+    if (e.isEmpty) return '$s $suffix';
+    return '$s - $e $suffix';
   }
 }

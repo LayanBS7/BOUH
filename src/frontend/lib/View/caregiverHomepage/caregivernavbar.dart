@@ -105,12 +105,14 @@ class _BookedTabContentState extends State<_BookedTabContent> {
       index: _bookedSubIndex,
       children: [
         BookedAppointmentsUpcoming(
+          caregiverId: 'cg_12',
           currentIndex: widget.currentIndex,
           onTap: widget.onTap,
           onSwitchToAvailable: widget.onSwitchToAvailable,
           onSwitchToPrevious: () => setState(() => _bookedSubIndex = 1),
         ),
         BookedAppointmentsPrevious(
+          caregiverId: 'cg_12',
           currentIndex: widget.currentIndex,
           onTap: widget.onTap,
           onSwitchToAvailable: widget.onSwitchToAvailable,

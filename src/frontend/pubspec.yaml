@@ -34,6 +34,7 @@ dependencies:
   firebase_core: ^3.8.1
   firebase_auth: ^5.3.4
   shared_preferences: ^2.2.3
+  flutter_stripe: ^12.2.0
 
   flutter_localizations:
     sdk: flutter
@@ -44,6 +45,7 @@ dependencies:
   image_picker: ^1.2.1
   intl: ^0.20.2
   table_calendar: ^3.1.1
+  url_launcher: ^6.2.5
 
 
  
@@ -76,6 +78,7 @@ flutter:
     - assets/images/wave.jpg
     - assets/images/wave_Draw.png
 
+    - assets/images/
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
