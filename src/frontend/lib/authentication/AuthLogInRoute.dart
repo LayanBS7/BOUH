@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bouh/View/HomePage/doctorHomePage.dart';
+import 'package:bouh/View/HomePage/doctorNavbar.dart';
 import 'package:bouh/View/Login/login_view.dart';
 import 'package:bouh/View/WelcomePage/splash_view.dart';
 import 'package:bouh/View/WelcomePage/welcomePage_view.dart';
@@ -28,7 +28,7 @@ class _LoginResolverViewState extends State<LoginResolverView> {
     switch (role) {
       case 'doctor':
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DoctorHomePage()),
+          MaterialPageRoute(builder: (_) => const DoctorNavbar()),
         );
         break;
       case 'caregiver':

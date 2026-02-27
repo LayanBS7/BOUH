@@ -1,14 +1,11 @@
 import 'dart:io' show SocketException;
 import 'dart:math' as math;
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bouh/authentication/AuthLogInRoute.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/View/WelcomePage/welcomePage_view.dart';
 import 'package:bouh/authentication/AuthService.dart';
-import 'package:bouh/View/caregiverHomepage/caregivernavbar.dart';
-import 'package:bouh/View/HomePage/doctorHomePage.dart';
 import 'package:bouh/widgets/email_reset_popup.dart';
 import 'package:bouh/widgets/doctor_pending_popup.dart';
 
@@ -25,7 +22,6 @@ class LoginView extends StatefulWidget {
   final Future<void> Function(String email, String password)? onLogin;
   final VoidCallback? onForgotPassword;
   final VoidCallback? onCreateAccount;
-  /// When true, shows the pending-doctor popup on top of login; «حسنا» routes to welcome.
   final bool showPendingDoctorDialog;
 
   @override

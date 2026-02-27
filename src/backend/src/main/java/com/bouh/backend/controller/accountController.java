@@ -1,8 +1,7 @@
 package com.bouh.backend.controller;
 import com.bouh.backend.model.Dto.*;
-import com.bouh.backend.service.accountService;
+import com.bouh.backend.service.accounts.accountsService;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.mapping.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,8 +12,8 @@ import org.springframework.security.core.Authentication;
 @RequestMapping("/api/accounts")
 public class accountController {
 
-    private final accountService accountService;
-    public accountController(accountService accountService) {
+    private final accountsService accountService;
+    public accountController(accountsService accountService) {
         this.accountService = accountService;
     }
 

@@ -154,7 +154,7 @@ class AuthService {
   /// Backend: GET /api/accounts/me
   Future<String> _getRoleFromBackend(String idToken) async {
     final uri =
-        Uri.parse('${ApiConfig.physicalDeviceBaseUrl}/api/accounts/me');
+        Uri.parse('${ApiConfig.baseUrl}/api/accounts/me');
 
     final response = await http.get(
       uri,
@@ -203,7 +203,7 @@ class AuthService {
     }
 
     final uri = Uri.parse(
-      '${ApiConfig.physicalDeviceBaseUrl}/api/accounts/register/doctors',
+      '${ApiConfig.baseUrl}/api/accounts/register/doctors',
     );
 
     final body = doctorDto.toJson()..['doctorId'] = user.uid;
@@ -245,7 +245,7 @@ class AuthService {
     }
 
     final uri = Uri.parse(
-      '${ApiConfig.physicalDeviceBaseUrl}/api/accounts/register/caregivers',
+      '${ApiConfig.baseUrl}/api/accounts/register/caregivers',
     );
 
     final response = await http.post(

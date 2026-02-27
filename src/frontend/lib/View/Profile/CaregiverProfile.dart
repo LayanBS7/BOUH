@@ -4,6 +4,7 @@ import 'package:bouh/View/Profile/ChildrenManagementView.dart';
 import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
 import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/View/Login/login_view.dart';
+import 'package:bouh/widgets/confirmation_popup.dart';
 
 class CaregiverAccountView extends StatelessWidget {
   const CaregiverAccountView({
@@ -185,6 +186,16 @@ class CaregiverAccountView extends StatelessWidget {
   }
 
   Future<void> _handleLogout(BuildContext context) async {
+    final confirmed = await ConfirmationPopup.show(
+      context,
+      title: 'تسجيل الخروج',
+      message: 'هل أنت متأكد أنك تريد تسجيل الخروج؟',
+      confirmText: 'تسجيل الخروج',
+      cancelText: 'إلغاء',
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+
     await AuthService.instance.signOut();
     if (!context.mounted) return;
     Navigator.of(context).pushAndRemoveUntil(

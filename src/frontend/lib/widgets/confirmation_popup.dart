@@ -44,8 +44,9 @@ class ConfirmationPopup extends StatelessWidget {
         confirmText: confirmText,
         cancelText: cancelText,
         isDestructive: isDestructive,
-        onConfirm: () => Navigator.of(ctx).pop(true),
-        onCancel: () => Navigator.of(ctx).pop(false),
+        // The dialog itself is responsible for popping with true/false.
+        // Avoid popping twice (which could pop the underlying route).
+        onConfirm: () {},
       ),
     );
     return result ?? false;

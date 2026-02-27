@@ -21,13 +21,10 @@ public class caregiverRepo {
                     .collection("caregivers")
                     .document(uid)
                     .set(caregiver)
-                    .get(); // wait for completion (important for error visibility)
+                    .get();
 
         } catch (Exception e) {
-            // Log with context (VERY important for debugging)
             log.error("Failed to create caregiver profile for uid={}", uid, e);
-
-            // Re-throw so higher layers can react
             throw new RuntimeException("Failed to create caregiver profile", e);
         }
     }

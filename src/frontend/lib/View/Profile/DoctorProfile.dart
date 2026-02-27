@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/View/HomePage/widgets/doctorBottomNav.dart';
+import 'package:bouh/authentication/AuthService.dart';
+import 'package:bouh/View/Login/login_view.dart';
+import 'package:bouh/widgets/confirmation_popup.dart';
 
 class DoctorProfileView extends StatefulWidget {
   const DoctorProfileView({
@@ -114,6 +117,33 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
 
   void _toggleEdit() {
     setState(() => _isEditing = !_isEditing);
+  }
+
+  Future<void> _handleLogout() async {
+    await AuthService.instance.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginView()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _confirmAndLogout() async {
+    final confirmed = await ConfirmationPopup.show(
+      context,
+      title: 'تسجيل الخروج',
+      message: 'هل أنت متأكد أنك تريد تسجيل الخروج؟',
+      confirmText: 'تسجيل الخروج',
+      cancelText: 'إلغاء',
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+
+    if (widget.onLogout != null) {
+      await widget.onLogout!();
+      return;
+    }
+    await _handleLogout();
   }
 
   Future<void> _save() async {
@@ -262,9 +292,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                         left: 12,
                         child: InkWell(
                           onTap: () async {
-                            if (widget.onLogout != null) {
-                              await widget.onLogout!();
-                            }
+                            await _confirmAndLogout();
                           },
                           child: Row(
                             children: [
