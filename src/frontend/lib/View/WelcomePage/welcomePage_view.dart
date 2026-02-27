@@ -144,7 +144,7 @@ class AccountTypeView extends StatelessWidget {
                               color: BColors.darkGrey,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 1),
                           TextButton(
                             onPressed: () => _handleGoToLogin(context),
                             child: const Text(

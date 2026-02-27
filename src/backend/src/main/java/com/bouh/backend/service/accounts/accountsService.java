@@ -1,4 +1,4 @@
-package com.bouh.backend.service;
+package com.bouh.backend.service.accounts;
 import com.bouh.backend.model.Dto.authDto;
 import com.bouh.backend.model.Dto.caregiverDto;
 import com.bouh.backend.model.Dto.doctorDto;
@@ -6,18 +6,34 @@ import com.bouh.backend.model.repository.caregiverRepo;
 import com.bouh.backend.model.repository.doctorRepo;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+
 @Service
-public class accountService {
+public class accountsService {
 
-        private final caregiverRepo caregiverRepository;
-        private final doctorRepo doctorRepository;
+    private final caregiverRepo caregiverRepository;
+    private final doctorRepo doctorRepository;
 
-        public accountService(caregiverRepo caregiverRepo, doctorRepo doctorRepo) {
-            this.caregiverRepository = caregiverRepo;
-            this.doctorRepository = doctorRepo;
-        }
+    public accountsService(caregiverRepo caregiverRepo, doctorRepo doctorRepo) {
+        this.caregiverRepository = caregiverRepo;
+        this.doctorRepository = doctorRepo;
+    }
 
     public void createCaregiverAccount(String uid, caregiverDto Dto) {
+        //Backend-controlled defaults
+        Dto.setCaregiverId(uid);
+
+        if (Dto.getName() == null) {
+            Dto.setName("");
+        }
+
+        if (Dto.getFcmToken() == null) {
+            Dto.setFcmToken(null);
+        }
+
+        if (Dto.getChildren() == null) {
+            Dto.setChildren(new ArrayList<>());
+        }
         try {
             caregiverRepository.createCaregiver(uid, Dto);
         } catch (Exception e) {
@@ -72,6 +88,3 @@ public class accountService {
         );
     }
 }
-
-
-
