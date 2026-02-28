@@ -4,6 +4,8 @@ import '../../theme/base_themes/colors.dart';
 import 'package:bouh/View/viewAppointments/widgets/appointmentCard.dart';
 import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
 import 'package:bouh/dto/upcomingAppointmentDto.dart';
+import 'package:bouh/authentication/AuthSession.dart';
+import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/services/appointmentsService.dart';
 import 'package:bouh/dto/payment/RefundResponseDto.dart';
 import 'package:bouh/services/payment/RefundService.dart';
@@ -73,15 +75,23 @@ class _BookedAppointmentsUpcomingState
   @override
   void initState() {
     super.initState();
-    _loadIfCaregiverSet(widget.caregiverId);
+    _prepareSessionAndLoad();
   }
 
   @override
   void didUpdateWidget(BookedAppointmentsUpcoming oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.caregiverId != widget.caregiverId) {
-      _loadIfCaregiverSet(widget.caregiverId);
+      _prepareSessionAndLoad();
     }
+  }
+
+  Future<void> _prepareSessionAndLoad() async {
+    final AuthSession _session = AuthSession.instance;
+    await AuthService.instance.refreshSession();
+    final String? _userId = _session.userId;
+    if (!mounted) return;
+    _loadIfCaregiverSet(_userId);
   }
 
   /// When caregiverId is set, call backend; on success set list and clear error; on failure set error and clear list.
@@ -295,14 +305,24 @@ class _BookedAppointmentsUpcomingState
     );
   }
 
-  /// If loading show CircularProgressIndicator; if error show Text(error); if list empty show SizedBox.shrink(); else Column of AppointmentCard.
-  /// First card: actionLabel "انضمام", BColors.accent; rest: "الغاء", _cancelRed.
   Widget _buildCardList() {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Text(_error!);
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'حدث خطأ، حاول مجددًا لاحقًا.',
+            style: TextStyle(
+              fontFamily: 'Markazi Text',
+              fontSize: 16,
+              color: BColors.darkGrey,
+            ),
+          ),
+        ),
+      );
     }
     if (_list.isEmpty) {
       return const Center(

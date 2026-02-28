@@ -7,7 +7,6 @@ import 'package:bouh/dto/childDto.dart';
 import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/View/AccountCreation/verify_email_view.dart';
 
-
 class CaregiverAccountCreationStep2 extends StatefulWidget {
   const CaregiverAccountCreationStep2({
     super.key,
@@ -81,7 +80,9 @@ class _CaregiverAccountCreationStep2State
   bool _isArabicName(String value) {
     final v = value.trim();
     if (v.isEmpty) return false;
-    final arabicOnly = RegExp(r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+$');
+    final arabicOnly = RegExp(
+      r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+$',
+    );
     return arabicOnly.hasMatch(v);
   }
 
@@ -133,30 +134,28 @@ class _CaregiverAccountCreationStep2State
       if (hasInvalidChildName) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('يرجى إدخال أسماء الأطفال باللغة العربية فقط')),
+            const SnackBar(
+              content: Text('يرجى إدخال أسماء الأطفال باللغة العربية فقط'),
+            ),
           );
         }
         return;
       }
 
       // Build ChildDto list from form (new children use empty childId).
-      final children = _childrenForms
-          .map(
-            (c) {
-              final day = (c.day ?? '').padLeft(2, '0');
-              final month = (c.month ?? '').padLeft(2, '0');
-              final year = c.year ?? '';
-              final dateOfBirth = '$year-$month-$day';
-              return ChildDto(
-                childId: '',
-                name: c.nameController.text.trim(),
-                dateOfBirth: dateOfBirth,
-                gender: c.gender,
-                drawings: null,
-              );
-            },
-          )
-          .toList();
+      final children = _childrenForms.map((c) {
+        final day = (c.day ?? '').padLeft(2, '0');
+        final month = (c.month ?? '').padLeft(2, '0');
+        final year = c.year ?? '';
+        final dateOfBirth = '$year-$month-$day';
+        return ChildDto(
+          childId: '',
+          name: c.nameController.text.trim(),
+          dateOfBirth: dateOfBirth,
+          gender: c.gender,
+          drawings: null,
+        );
+      }).toList();
 
       // Single caregiver DTO: name, email, list of children (caregiverId set by AuthService).
       final caregiverDto = CaregiverDto(
@@ -187,8 +186,8 @@ class _CaregiverAccountCreationStep2State
         }
       } catch (e) {
         if (mounted) {
-          final message = e is FirebaseAuthException &&
-                  e.code == 'email-already-in-use'
+          final message =
+              e is FirebaseAuthException && e.code == 'email-already-in-use'
               ? 'البريد الإلكتروني مستخدم بالفعل بحساب آخر.'
               : 'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.';
           setState(() {
@@ -239,15 +238,9 @@ class _CaregiverAccountCreationStep2State
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Image.asset(
-                              'assets/images/login_header.png',
-                              width: 60,
-                              fit: BoxFit.contain,
-                            ),
-                            const SizedBox(width: 35),
                             const Expanded(
                               child: Text(
-                                'للاستمرار , يجب ادخال طفل واحد كحد ادنى',
+                                ' أضف طفلاً واحداً على الأقل للمتابعة',
                                 textAlign: TextAlign.right,
                                 style: TextStyle(
                                   fontSize: 16,
@@ -256,10 +249,16 @@ class _CaregiverAccountCreationStep2State
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 35),
+                            Image.asset(
+                              'assets/images/login_header.png',
+                              width: 60,
+                              fit: BoxFit.contain,
+                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 28),
 
                       ListView.builder(
                         shrinkWrap: true,
@@ -291,7 +290,7 @@ class _CaregiverAccountCreationStep2State
                                 const Align(
                                   alignment: Alignment.centerRight,
                                   child: Text(
-                                    'اسم الطفل',
+                                    'اسم الطفل *',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: BColors.darkGrey,
@@ -311,7 +310,7 @@ class _CaregiverAccountCreationStep2State
                                 const Align(
                                   alignment: Alignment.centerRight,
                                   child: Text(
-                                    'جنس الطفل',
+                                    'جنس الطفل *',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: BColors.darkGrey,
@@ -329,7 +328,7 @@ class _CaregiverAccountCreationStep2State
                                 const Align(
                                   alignment: Alignment.centerRight,
                                   child: Text(
-                                    'تاريخ الميلاد',
+                                    'تاريخ الميلاد *',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: BColors.darkGrey,
@@ -470,8 +469,8 @@ class _CaregiverAccountCreationStep2State
               ),
 
               Positioned(
-                top: -10,
-                right: 30,
+                top: 8,
+                right: 16,
                 child: IconButton(
                   icon: const Icon(
                     Icons.arrow_back_ios_new_rounded,

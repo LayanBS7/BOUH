@@ -5,6 +5,7 @@ import 'package:bouh/View/viewAppointments/bookedAppointmentsUpcoming.dart';
 import 'package:bouh/View/viewAppointments/bookedAppointmentsPrevious.dart';
 import 'package:bouh/View/DrawingAnalysis/RequestAnalysisPage.dart';
 import 'package:bouh/View/Profile/CaregiverProfile.dart';
+import 'package:bouh/authentication/AuthSession.dart';
 
 /// Shell that holds the caregiver bottom nav index and switches between
 /// home (0), drawings (1), appointments (2), and profile (3).
@@ -101,18 +102,21 @@ class _BookedTabContentState extends State<_BookedTabContent> {
 
   @override
   Widget build(BuildContext context) {
+    final AuthSession _session = AuthSession.instance;
+    final String? caregiverId = _session.userId;
+
     return IndexedStack(
       index: _bookedSubIndex,
       children: [
         BookedAppointmentsUpcoming(
-          caregiverId: 'cg_12',
+          caregiverId: caregiverId,
           currentIndex: widget.currentIndex,
           onTap: widget.onTap,
           onSwitchToAvailable: widget.onSwitchToAvailable,
           onSwitchToPrevious: () => setState(() => _bookedSubIndex = 1),
         ),
         BookedAppointmentsPrevious(
-          caregiverId: 'cg_12',
+          caregiverId: caregiverId,
           currentIndex: widget.currentIndex,
           onTap: widget.onTap,
           onSwitchToAvailable: widget.onSwitchToAvailable,

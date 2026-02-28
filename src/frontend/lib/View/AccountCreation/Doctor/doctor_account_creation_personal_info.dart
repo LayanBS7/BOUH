@@ -107,7 +107,12 @@ class _DoctorAccountCreationStep1State
       return 'يرجى إدخال بريد إلكتروني صحيح';
     }
     const allowedDomains = <String>{
-      'gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 'icloud.com', 'live.com',
+      'gmail.com',
+      'outlook.com',
+      'hotmail.com',
+      'yahoo.com',
+      'icloud.com',
+      'live.com',
     };
     final parts = trimmed.split('@');
     if (parts.length != 2) return 'يرجى إدخال بريد إلكتروني صحيح';
@@ -117,8 +122,7 @@ class _DoctorAccountCreationStep1State
     return null;
   }
 
-  String? _validatePassword(String? value) =>
-      validateStrongPassword(value);
+  String? _validatePassword(String? value) => validateStrongPassword(value);
 
   String? _validateConfirmPassword(String? value) {
     if (value == null || value.isEmpty) return 'يرجى تأكيد كلمة المرور';
@@ -130,7 +134,9 @@ class _DoctorAccountCreationStep1State
     if (value == null || value.trim().isEmpty) {
       return 'يرجى إدخال الاسم';
     }
-    final arabicOnly = RegExp(r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+$');
+    final arabicOnly = RegExp(
+      r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+$',
+    );
     if (!arabicOnly.hasMatch(value.trim())) {
       return 'يرجى إدخال الاسم باللغة العربية فقط';
     }
@@ -221,7 +227,10 @@ class _DoctorAccountCreationStep1State
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: BColors.validationError, width: 1.5),
+        borderSide: const BorderSide(
+          color: BColors.validationError,
+          width: 1.5,
+        ),
       ),
     );
   }
@@ -239,7 +248,7 @@ class _DoctorAccountCreationStep1State
               // ================== CONTENT ==================
               SingleChildScrollView(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 30),
+                  padding: const EdgeInsets.fromLTRB(22, 30, 22, 30),
                   child: Form(
                     key: _formKey,
                     autovalidateMode: AutovalidateMode.disabled,
@@ -251,12 +260,6 @@ class _DoctorAccountCreationStep1State
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Image.asset(
-                                'assets/images/login_header.png',
-                                width: 56,
-                                fit: BoxFit.contain,
-                              ),
-                              const SizedBox(width: 18),
                               const Expanded(
                                 child: Text(
                                   'دقائق قليلة ويكتمل إنشاء الحساب',
@@ -267,6 +270,12 @@ class _DoctorAccountCreationStep1State
                                     color: BColors.textDarkestBlue,
                                   ),
                                 ),
+                              ),
+                              const SizedBox(width: 35),
+                              Image.asset(
+                                'assets/images/login_header.png',
+                                width: 60,
+                                fit: BoxFit.contain,
                               ),
                             ],
                           ),
@@ -281,27 +290,29 @@ class _DoctorAccountCreationStep1State
                         const SizedBox(height: 18),
 
                         _LabeledFormField(
-                          label: 'البريد الإلكتروني',
+                          label: 'البريد الإلكتروني *',
                           controller: _emailCtrl,
                           keyboardType: TextInputType.emailAddress,
                           obscure: false,
                           decoration: _inputDecoration(),
                           focusNode: _emailFocusNode,
                           fieldKey: _emailFieldKey,
-                          validator: (v) => _emailTouched ? _validateEmail(v) : null,
+                          validator: (v) =>
+                              _emailTouched ? _validateEmail(v) : null,
                           onChanged: (_) => setState(() {}),
                         ),
                         const SizedBox(height: 14),
 
                         _LabeledFormField(
-                          label: 'كلمة المرور',
+                          label: 'كلمة المرور *',
                           controller: _passCtrl,
                           keyboardType: TextInputType.text,
                           obscure: true,
                           decoration: _inputDecoration(),
                           focusNode: _passwordFocusNode,
                           fieldKey: _passwordFieldKey,
-                          validator: (v) => _passwordTouched ? _validatePassword(v) : null,
+                          validator: (v) =>
+                              _passwordTouched ? _validatePassword(v) : null,
                           onChanged: (_) => setState(() {}),
                         ),
                         const SizedBox(height: 8),
@@ -309,130 +320,135 @@ class _DoctorAccountCreationStep1State
                         const SizedBox(height: 14),
 
                         _LabeledFormField(
-                          label: 'تأكيد كلمة المرور',
+                          label: 'تأكيد كلمة المرور *',
                           controller: _confirmCtrl,
                           keyboardType: TextInputType.text,
                           obscure: true,
                           decoration: _inputDecoration(),
                           focusNode: _confirmFocusNode,
                           fieldKey: _confirmPasswordFieldKey,
-                          validator: (v) => _confirmTouched ? _validateConfirmPassword(v) : null,
+                          validator: (v) => _confirmTouched
+                              ? _validateConfirmPassword(v)
+                              : null,
                           onChanged: (_) => setState(() {}),
                         ),
                         const SizedBox(height: 14),
 
                         _LabeledFormField(
-                          label: 'الاسم',
+                          label: 'الاسم *',
                           controller: _nameCtrl,
                           keyboardType: TextInputType.name,
                           obscure: false,
                           decoration: _inputDecoration(),
                           focusNode: _nameFocusNode,
                           fieldKey: _nameFieldKey,
-                          validator: (v) => _nameTouched ? _validateName(v) : null,
+                          validator: (v) =>
+                              _nameTouched ? _validateName(v) : null,
                           onChanged: (_) => setState(() {}),
                         ),
                         const SizedBox(height: 14),
 
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: const Text(
-                          'الجنس',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: BColors.darkGrey,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      _GenderSegment(
-                        value: _gender,
-                        onChanged: (v) => setState(() => _gender = v),
-                      ),
-                      const SizedBox(height: 14),
-
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: const Text(
-                          'صورة شخصية',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: BColors.darkGrey,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      Container(
-                        height: 46,
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: BColors.grey),
-                          color: BColors.white,
-                        ),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              onPressed: _pickImage,
-                              icon: const Icon(
-                                Icons.download_rounded,
-                                color: BColors.primary,
-                              ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: const Text(
+                            'الجنس *',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: BColors.darkGrey,
                             ),
-                            const Spacer(),
-                            if (_profileImage != null)
-                              const Text(
-                                'تم اختيار صورة',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: BColors.darkGrey,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        _GenderSegment(
+                          value: _gender,
+                          onChanged: (v) => setState(() => _gender = v),
+                        ),
+                        const SizedBox(height: 14),
+
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: const Text(
+                            'صورة شخصية',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: BColors.darkGrey,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        Container(
+                          height: 46,
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: BColors.grey),
+                            color: BColors.white,
+                          ),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                onPressed: _pickImage,
+                                icon: const Icon(
+                                  Icons.download_rounded,
+                                  color: BColors.primary,
                                 ),
                               ),
-                            const Spacer(),
-                          ],
+                              const Spacer(),
+                              if (_profileImage != null)
+                                const Text(
+                                  'تم اختيار صورة',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: BColors.darkGrey,
+                                  ),
+                                ),
+                              const Spacer(),
+                            ],
+                          ),
                         ),
-                      ),
                         const SizedBox(height: 18),
 
                         SizedBox(
                           width: double.infinity,
                           height: 50,
                           child: ElevatedButton(
-                            onPressed: _isFormComplete ? () => _handleNext() : null,
-                          style: ElevatedButton.styleFrom(
-                            elevation: 0,
-                            backgroundColor: BColors.secondary,
-                            foregroundColor: BColors.textDarkestBlue,
-                            disabledBackgroundColor: BColors.secondary
-                                .withOpacity(0.4),
-                            disabledForegroundColor: BColors.textDarkestBlue
-                                .withOpacity(0.5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                            onPressed: _isFormComplete
+                                ? () => _handleNext()
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: BColors.secondary,
+                              foregroundColor: BColors.textDarkestBlue,
+                              disabledBackgroundColor: BColors.secondary
+                                  .withOpacity(0.4),
+                              disabledForegroundColor: BColors.textDarkestBlue
+                                  .withOpacity(0.5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                             ),
-                          ),
-                          child: const Text(
-                            'التالي',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
+                            child: const Text(
+                              'التالي',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
                 ),
               ),
 
               // ================== BACK ARROW (ON TOP) ==================
               Positioned(
-                top: -10,
-                right: 30,
+                top: 8,
+                right: 16,
                 child: IconButton(
                   icon: const Icon(
                     Icons.arrow_back_ios_new_rounded,
@@ -606,7 +622,7 @@ class _SegButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: selected ? BColors.textDarkestBlue : BColors.darkGrey,
+            color: selected ? BColors.white : BColors.darkGrey,
           ),
         ),
       ),
