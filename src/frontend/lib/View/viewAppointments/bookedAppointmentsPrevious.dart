@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../theme/base_themes/colors.dart';
 import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
+import 'package:bouh/authentication/AuthSession.dart';
+import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/dto/upcomingAppointmentDto.dart';
 import 'package:bouh/services/appointmentsService.dart';
 import 'widgets/previousBookedAppointmentCard.dart';
@@ -48,15 +50,23 @@ class _BookedAppointmentsPreviousState
   @override
   void initState() {
     super.initState();
-    _loadIfCaregiverSet(widget.caregiverId);
+    _prepareSessionAndLoad();
   }
 
   @override
   void didUpdateWidget(BookedAppointmentsPrevious oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.caregiverId != widget.caregiverId) {
-      _loadIfCaregiverSet(widget.caregiverId);
+      _prepareSessionAndLoad();
     }
+  }
+
+  Future<void> _prepareSessionAndLoad() async {
+    final AuthSession _session = AuthSession.instance;
+    await AuthService.instance.refreshSession();
+    final String? _userId = _session.userId;
+    if (!mounted) return;
+    _loadIfCaregiverSet(_userId);
   }
 
   void _loadIfCaregiverSet(String? caregiverId) {
@@ -294,7 +304,19 @@ class _BookedAppointmentsPreviousState
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Text(_error!);
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'حدث خطأ، حاول مجددًا لاحقًا.',
+            style: TextStyle(
+              fontFamily: 'Markazi Text',
+              fontSize: 16,
+              color: BColors.darkGrey,
+            ),
+          ),
+        ),
+      );
     }
     if (_list.isEmpty) {
       return const Center(

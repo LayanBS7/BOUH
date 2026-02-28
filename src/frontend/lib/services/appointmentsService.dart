@@ -3,19 +3,33 @@ import 'package:http/http.dart' as http;
 
 import 'package:bouh/config/api_config.dart';
 import 'package:bouh/dto/upcomingAppointmentDto.dart';
+import 'package:bouh/authentication/AuthSession.dart';
 
 /// Service that calls backend appointment endpoints.
 /// Caller: BookedAppointmentsUpcoming page. Builds URL from ApiConfig.baseUrl + path.
 class AppointmentsService {
+  final AuthSession _session = AuthSession.instance;
+
   /// GET /api/appointments/upcoming/{caregiverId}. On 2xx parses JSON list to [UpcomingAppointmentDto].
   /// On non-2xx throws [Exception] with status code and body.
   Future<List<UpcomingAppointmentDto>> getUpcomingAppointments(
     String caregiverId,
   ) async {
+    final token = _session.idToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('UNAUTHORIZED');
+    }
+
     final url = Uri.parse(
       '${ApiConfig.baseUrl}/api/appointments/upcoming/$caregiverId',
     );
-    final res = await http.get(url);
+    final res = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
 
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Backend error ${res.statusCode}: ${res.body}');
@@ -31,10 +45,21 @@ class AppointmentsService {
   Future<List<UpcomingAppointmentDto>> getPreviousAppointments(
     String caregiverId,
   ) async {
+    final token = _session.idToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('UNAUTHORIZED');
+    }
+
     final url = Uri.parse(
       '${ApiConfig.baseUrl}/api/appointments/previous/$caregiverId',
     );
-    final res = await http.get(url);
+    final res = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
 
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Backend error ${res.statusCode}: ${res.body}');
