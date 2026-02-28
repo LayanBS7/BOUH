@@ -3,17 +3,15 @@ package com.bouh.backend.model.Dto.AvailabilitySchedule;
 import lombok.Data;
 
 /**
- * Represents ONE offered slot. 
+ * Slot used in GET response DTO for frontend.
  *
- * Stored in:
- * doctors/{doctorId}/schedule/current/TimeSlots/{yyyy-MM-dd}
- *
- * Example:
+ * Returned as:
  * { "index": 2, "booked": true }
  *
- * Notes:
- * - We store ONLY offered slots.
- * - booked=true means the slot is already booked. 
+ * Note:
+ * - Not stored directly in Firestore in the new schema.
+ * - It is derived from TimeSlots/{index}.status:
+ *   BOOKED -> booked=true, AVAILABLE -> booked=false
  */
 
 @Data

@@ -19,7 +19,7 @@ public class AvailabilityScheduleRepo {
 
      /**
      * Builds reference to one day doc.
-     * doctors/{doctorId}/schedule/current/TimeSlots/{yyyy-MM-dd} 🔁🟢
+     * doctors/{doctorId}/schedule/current/TimeSlots/{yyyy-MM-dd} 
      */
     private DocumentReference dayDoc(String doctorId, String isoDate) {
         // isoDate must be yyyy-MM-dd
@@ -53,6 +53,32 @@ public class AvailabilityScheduleRepo {
 
         } catch (Exception e) {
             throw new RuntimeException("Error reading availability day", e);
+        }
+    }
+
+    public Map<String, AvailabilityDayDto> getDaysByDates(String doctorId, List<String> dates) {
+        try {
+            List<DocumentReference> refs = new ArrayList<>();
+            for (String d : dates) refs.add(dayDoc(doctorId, d));
+
+            List<DocumentSnapshot> snaps = firestore.getAll(refs.toArray(new DocumentReference[0])).get();
+
+            Map<String, AvailabilityDayDto> out = new HashMap<>();
+            for (DocumentSnapshot snap : snaps) {
+                if (!snap.exists()) continue;
+
+                AvailabilityDayDto day = snap.toObject(AvailabilityDayDto.class);
+                if (day == null) continue;
+
+                String date = snap.getId();
+                day.setDate(date);
+                if (day.getSlots() == null) day.setSlots(new ArrayList<>());
+                out.put(date, day);
+            }
+            return out;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error reading availability days", e);
         }
     }
 
@@ -103,11 +129,19 @@ public class AvailabilityScheduleRepo {
      * If document does not exist -> it will be created.
      * If exists -> it will be updated.
      */
-    public void update(String doctorId, Map<String, AvailabilityDayDto> daysByDate) {
+    public void update(String doctorId, Map<String, AvailabilityDayDto> daysByDate, Set<String> datesToDelete) {
 
         try {
             WriteBatch batch = firestore.batch();
 
+            // Deletes
+            if (datesToDelete != null) {
+                for (String isoDate : datesToDelete) {
+                    batch.delete(dayDoc(doctorId, isoDate));
+                }
+            }
+
+            //Write
             for (Map.Entry<String, AvailabilityDayDto> entry : daysByDate.entrySet()) {
                 String isoDate = entry.getKey();        // doc id = date
                 AvailabilityDayDto day = entry.getValue();
