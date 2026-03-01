@@ -42,6 +42,7 @@
         </dependency>
 
         <!-- Firebase -->
+
 		<dependency>
 			<groupId>com.google.firebase</groupId>
 			<artifactId>firebase-admin</artifactId>

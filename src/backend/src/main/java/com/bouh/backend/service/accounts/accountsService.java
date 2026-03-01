@@ -1,12 +1,8 @@
 package com.bouh.backend.service.accounts;
-import com.bouh.backend.model.Dto.authDto;
-import com.bouh.backend.model.Dto.caregiverDto;
-import com.bouh.backend.model.Dto.doctorDto;
+import com.bouh.backend.model.Dto.*;
 import com.bouh.backend.model.repository.caregiverRepo;
 import com.bouh.backend.model.repository.doctorRepo;
 import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
 
 @Service
 public class accountsService {
@@ -20,20 +16,6 @@ public class accountsService {
     }
 
     public void createCaregiverAccount(String uid, caregiverDto Dto) {
-        //Backend-controlled defaults
-        Dto.setCaregiverId(uid);
-
-        if (Dto.getName() == null) {
-            Dto.setName("");
-        }
-
-        if (Dto.getFcmToken() == null) {
-            Dto.setFcmToken(null);
-        }
-
-        if (Dto.getChildren() == null) {
-            Dto.setChildren(new ArrayList<>());
-        }
         try {
             caregiverRepository.createCaregiver(uid, Dto);
         } catch (Exception e) {
@@ -44,15 +26,6 @@ public class accountsService {
     }
 
     public void createDoctorAccount(String uid, doctorDto Dto) {
-
-        Dto.setRegistrationStatus("PENDING");
-        Dto.setAverageRating(0.0);
-        Dto.setFcmToken(null);
-        Dto.setProfilePhotoURL(null);
-        Dto.setSchedule(null);
-        Dto.setScfhsnumber(Dto.getScfhsnumber());
-        Dto.setIban(Dto.getIban());
-
         try {
             doctorRepository.createDoctor(uid, Dto);
         } catch (Exception e) {
@@ -87,4 +60,26 @@ public class accountsService {
                 null
         );
     }
+
+    public void deleteCaregiverAccount(String uid) {
+        try {
+            caregiverRepository.deleteCaregiver(uid);
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to delete caregiver account for uid=" + uid, e
+            );
+        }
+    }
+
+    public void deleteDoctorAccount(String uid) {
+        try {
+            doctorRepository.deleteDoctor(uid);
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to delete doctor account for uid=" + uid, e
+            );
+        }
+    }
+
+
 }
