@@ -14,8 +14,6 @@ class CaregiverAccountCreationStep2 extends StatefulWidget {
     this.onSubmitChildren,
   });
 
-  /// Step-1 data (email, password, caregiver name). When set, account creation
-  /// runs on submit: caregiver DTO is built and sent via AuthService.
   final CaregiverSignupData? signupData;
 
   /// Optional hook when not using [signupData]: custom submit of children payload.

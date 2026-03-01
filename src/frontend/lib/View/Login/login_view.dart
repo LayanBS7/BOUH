@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/View/WelcomePage/welcomePage_view.dart';
 import 'package:bouh/authentication/AuthService.dart';
+import 'package:bouh/widgets/confirmation_popup.dart';
 import 'package:bouh/widgets/email_reset_popup.dart';
 import 'package:bouh/widgets/doctor_pending_popup.dart';
+import 'package:bouh/widgets/loading_overlay.dart';
 
 /// Login: validate form → AuthService.login(email, password) → backend returns uid, role → route by role.
 class LoginView extends StatefulWidget {
@@ -35,6 +37,7 @@ class _LoginViewState extends State<LoginView> {
 
   String? _emailError;
   String? _passwordError;
+  bool _isLoggingIn = false;
 
   final _emailFieldKey = GlobalKey<FormFieldState<String>>();
   final _passwordFieldKey = GlobalKey<FormFieldState<String>>();
@@ -127,10 +130,13 @@ class _LoginViewState extends State<LoginView> {
       return;
     }
 
+    setState(() => _isLoggingIn = true);
+
     try {
       await AuthService.instance.login(email: email, password: password);
 
       if (!mounted) return;
+      setState(() => _isLoggingIn = false);
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginResolverView()),
@@ -138,32 +144,46 @@ class _LoginViewState extends State<LoginView> {
     } on SocketException {
       if (!mounted) return;
       setState(() {
+        _isLoggingIn = false;
         _passwordError =
             'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
       });
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() {
+        _isLoggingIn = false;
         switch (e.code) {
           case 'invalid-email':
-          case 'invalid-credential':
-            _emailError =
-                'صيغة البريد الإلكتروني غير صحيحة أو الحساب غير موجود.';
+            _emailError = 'صيغة البريد الإلكتروني غير صحيحة.';
             _passwordError = null;
             break;
+          case 'invalid-credential':
           case 'user-not-found':
           case 'wrong-password':
           case 'invalid-login-credentials':
             _emailError = null;
-            _passwordError = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+            _passwordError =
+                'البريد الإلكتروني أو كلمة المرور غير صحيحة. لم يتم العثور على الحساب.';
+            break;
+          case 'too-many-requests':
+            _emailError = null;
+            _passwordError =
+                'تم تجاوز عدد المحاولات. انتظر قليلاً ثم حاول مرة أخرى.';
+            break;
+          case 'user-disabled':
+            _emailError = null;
+            _passwordError = 'تم تعطيل هذا الحساب. تواصل مع الدعم.';
             break;
           default:
+            _emailError = null;
             _passwordError = _mapLoginErrorToMessage(e);
         }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
+        _isLoggingIn = false;
+        _emailError = null;
         _passwordError = _mapLoginErrorToMessage(e);
       });
     }
@@ -172,16 +192,21 @@ class _LoginViewState extends State<LoginView> {
   String _mapLoginErrorToMessage(Object e) {
     final msg = e.toString();
 
-    if (msg.contains('wrong_credentials')) {
-      return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+    if (msg.contains('wrong_credentials') ||
+        msg.contains('invalid-credential') ||
+        msg.contains('INVALID_LOGIN_CREDENTIALS')) {
+      return 'البريد الإلكتروني أو كلمة المرور غير صحيحة. لم يتم العثور على حساب.';
     }
 
-    // Only treat as network error for real I/O / socket errors, not for auth errors that might mention "connection".
     if (e is SocketException) {
       return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
     }
     if (msg.contains('SocketException') || msg.contains('Failed host lookup')) {
       return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
+    }
+
+    if (msg.contains('UNAUTHORIZED') || msg.contains('401')) {
+      return 'البريد الإلكتروني أو كلمة المرور غير صحيحة. لم يتم العثور على حساب.';
     }
 
     return 'حدث خطأ غير متوقع. حاول مرة أخرى.';
@@ -198,10 +223,11 @@ class _LoginViewState extends State<LoginView> {
           AuthService.instance.sendPasswordResetEmail(email: email),
     ).then((submitted) {
       if (submitted && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم إرسال رابط استعادة كلمة المرور إلى بريدك.'),
-          ),
+        ConfirmationPopup.show(
+          context,
+          message: 'تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني.',
+          confirmText: 'حسناً',
+          singleButton: true,
         );
       }
     });
@@ -225,12 +251,11 @@ class _LoginViewState extends State<LoginView> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: BColors.white,
-        body: SafeArea(
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              /// Scrollable container to support small screens and keyboard overlap.
-              SingleChildScrollView(
+        body: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            SafeArea(
+              child: SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 75, 20, 220),
                   child: Form(
@@ -297,16 +322,17 @@ class _LoginViewState extends State<LoginView> {
                         const SizedBox(height: 18),
 
                         /// Login button.
-                        /// Connect loading/error states here in the next stage.
                         SizedBox(
                           width: 237,
                           height: 53,
                           child: ElevatedButton(
-                            onPressed: _handleLogin,
+                            onPressed: _isLoggingIn ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
                               elevation: 0,
                               backgroundColor: BColors.secondary,
                               foregroundColor: BColors.textDarkestBlue,
+                              disabledBackgroundColor: BColors.secondary,
+                              disabledForegroundColor: BColors.textDarkestBlue,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -393,6 +419,7 @@ class _LoginViewState extends State<LoginView> {
                   ),
                 ),
               ),
+            ),
 
               /// Decorative background wave.
               /// Visual-only element; must remain free of logic.
@@ -412,10 +439,10 @@ class _LoginViewState extends State<LoginView> {
                     ),
                   ),
                 ),
+            if (_isLoggingIn) BouhLoadingOverlay(),
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -484,6 +511,7 @@ class _LabeledField extends StatelessWidget {
               borderSide: BorderSide(color: BColors.primary.withOpacity(0.6)),
             ),
             errorText: serverError,
+            errorMaxLines: 2,
             errorStyle: const TextStyle(
               color: BColors.validationError,
               fontSize: 12,

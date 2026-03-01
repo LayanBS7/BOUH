@@ -57,7 +57,7 @@ class ChildrenManagementView extends StatelessWidget {
                     Text(
                       "ادارة الاطفال",
                       style: TextStyle(
-                        fontSize: 32,
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
                         color: Colors.black.withOpacity(0.75),
                       ),

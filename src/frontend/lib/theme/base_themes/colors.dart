@@ -15,6 +15,7 @@ class BColors {
 
   ///Validation error text (deep red, shown below fields)
   static const Color validationError = Color(0xFFB71C1C);
+  static const Color destructiveError = Color(0xFFE4573D); 
 
   ///Neutral Shades
   static const Color black = Color(0xFF272727);

@@ -5,6 +5,7 @@ import '../config/api_config.dart';
 import '../dto/caregiverDto.dart';
 import '../dto/doctorDto.dart';
 import 'AuthSession.dart';
+import 'dart:io';
 
 /// Auth service:
 /// login / logout , reset password , create accounts, register profiles on backend
@@ -150,11 +151,11 @@ class AuthService {
 
   Future<void> refreshSession() async => _refreshSession();
 
-
   /// Backend: GET /api/accounts/me
   Future<String> _getRoleFromBackend(String idToken) async {
+    print('logging in. . .');
     final uri =
-        Uri.parse('${ApiConfig.baseUrl}/api/accounts/me');
+        Uri.parse('${ApiConfig.physicalBaseUrl}/api/accounts/me');
 
     final response = await http.get(
       uri,
@@ -176,6 +177,7 @@ class AuthService {
 
     final map = jsonDecode(response.body) as Map<String, dynamic>;
     final role = map['role'] as String?;
+    print('role: $role');
     final registrationStatus = map['registrationStatus'] as String?;
 
     if (role == null || (role != 'doctor' && role != 'caregiver')) {
@@ -189,6 +191,18 @@ class AuthService {
     return role;
   }
 
+//import 'package:firebase_storage/firebase_storage.dart';
+Future<String> uploadImageToFirebaseStorage(File file) async {
+  //final ref = FirebaseStorage.instance
+  //    .ref()
+  //    .child('profile_images')
+  //    .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
+
+ // await ref.putFile(file);
+
+ // return await ref.getDownloadURL();
+  return '';
+}
 
   // Backend: POST /api/accounts/register/doctors to register doctor on backend.
   Future<void> _registerDoctorOnBackend(DoctorDto doctorDto) async {
@@ -203,7 +217,7 @@ class AuthService {
     }
 
     final uri = Uri.parse(
-      '${ApiConfig.baseUrl}/api/accounts/register/doctors',
+      '${ApiConfig.physicalDeviceBaseUrl}/api/accounts/register/doctors',
     );
 
     final body = doctorDto.toJson()..['doctorId'] = user.uid;
@@ -229,7 +243,6 @@ class AuthService {
     }
   }
 
-
   // Backend: POST /api/accounts/register/caregivers to register caregiver on backend.
   Future<void> _registerCaregiverOnBackend(
     CaregiverDto caregiverDto,
@@ -245,7 +258,7 @@ class AuthService {
     }
 
     final uri = Uri.parse(
-      '${ApiConfig.baseUrl}/api/accounts/register/caregivers',
+      '${ApiConfig.physicalDeviceBaseUrl}/api/accounts/register/caregivers',
     );
 
     final response = await http.post(
@@ -268,8 +281,38 @@ class AuthService {
       );
     }
   }
-
  
+ // Backend: DELETE /api/accounts/delete to delete account on backend.
+  Future<String?> deleteAccountOnBackend() async {
+    final token = _session.idToken;
+    if (token == null || token.isEmpty) {
+      throw StateError('No JWT');
+    }
+
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('User not found');
+    }
+
+    final uri = Uri.parse(
+      '${ApiConfig.physicalBaseUrl}/api/accounts/delete',
+    );
+    final response = await http.delete(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+     if (response.statusCode == 200) {
+     //sign out AFTER backend success
+    await FirebaseAuth.instance.signOut();
+  } else {
+    throw Exception('Failed to delete account');
+  }
+
+  }
+
   // Session helper: set session from user
   Future<void> _setSessionFromUser(User user) async {
     final token = await user.getIdToken(true);
