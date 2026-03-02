@@ -174,15 +174,28 @@ class _DoctorAccountCreationStep1State
   }
 
   Future<void> _pickImage() async {
+    print('[DoctorReg Step1] _pickImage: started');
     if (widget.onPickImage != null) {
+      print('[DoctorReg Step1] _pickImage: using widget.onPickImage callback');
       final file = await widget.onPickImage!();
-      if (file == null) return;
+      if (file == null) {
+        print('[DoctorReg Step1] _pickImage: callback returned null, user cancelled');
+        return;
+      }
+      print('[DoctorReg Step1] _pickImage: callback returned file path=${file.path}');
       setState(() => _profileImage = file);
+      print('[DoctorReg Step1] _pickImage: _profileImage set from callback');
       return;
     }
+    print('[DoctorReg Step1] _pickImage: picking from gallery');
     final x = await _picker.pickImage(source: ImageSource.gallery);
-    if (x == null) return;
+    if (x == null) {
+      print('[DoctorReg Step1] _pickImage: user cancelled gallery pick');
+      return;
+    }
+    print('[DoctorReg Step1] _pickImage: picked path=${x.path}');
     setState(() => _profileImage = File(x.path));
+    print('[DoctorReg Step1] _pickImage: _profileImage set from gallery');
   }
 
   void _handleNext() {
@@ -205,14 +218,16 @@ class _DoctorAccountCreationStep1State
       password: _passCtrl.text,
       name: _nameCtrl.text.trim(),
       gender: _gender,
+      profileImage: _profileImage,
     );
-
+    print('[DoctorReg Step1] _handleNext: signupData created with profileImage=${_profileImage != null ? _profileImage!.path : "null"}');
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => DoctorAccountCreationStep2(signupData: signupData),
       ),
     );
+    print('[DoctorReg Step1] _handleNext: pushed to Step2 with signupData');
   }
 
   InputDecoration _inputDecoration({Widget? suffixIcon}) {
@@ -407,8 +422,10 @@ class _DoctorAccountCreationStep1State
                             children: [
                               IconButton(
                                 onPressed: _pickImage,
-                                icon: const Icon(
-                                  Icons.download_rounded,
+                                icon: Icon(
+                                  _profileImage != null
+                                      ? Icons.edit_rounded
+                                      : Icons.download_rounded,
                                   color: BColors.primary,
                                 ),
                               ),

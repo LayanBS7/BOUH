@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/View/Login/login_view.dart';
+import 'package:bouh/widgets/loading_overlay.dart';
 
 /// After signup: user verifies email, then we create backend profile (if pending) and go to login.
 class VerifyEmailView extends StatefulWidget {
@@ -120,6 +121,7 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
       if (isVerified) {
         await AuthService.instance.refreshSession();
         try {
+          print('[VerifyEmailView] email verified, calling createPendingDoctorProfileIfAny (profile image upload is ongoing)');
           await AuthService.instance.createPendingDoctorProfileIfAny();
           await AuthService.instance.createPendingCaregiverProfileIfAny();
           _navigateToLogin();
@@ -248,10 +250,10 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
                       ),
                     ),
                     child: _isChecking
-                        ? const SizedBox(
+                        ? const BouhOvalLoadingIndicator(
                             width: 24,
                             height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            strokeWidth: 2,
                           )
                         : const Text(
                             'تم تفعيل البريد الالكتروني',

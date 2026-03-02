@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 
 /// Full-screen circular loading overlay using the app's three primary colors.
-/// Use in any loading context (login, API calls, etc.) like normal applications.
 class BouhLoadingOverlay extends StatefulWidget {
   const BouhLoadingOverlay({
     super.key,
@@ -107,6 +106,112 @@ class _CircularGradientProgressPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CircularGradientProgressPainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
+
+/// Inline oval loading indicator using the app's gradient colors.
+/// Use inside buttons or small spaces
+class BouhOvalLoadingIndicator extends StatefulWidget {
+  const BouhOvalLoadingIndicator({
+    super.key,
+    this.width = 24,
+    this.height = 16,
+    this.strokeWidth = 2,
+  });
+
+  final double width;
+  final double height;
+  final double strokeWidth;
+
+  @override
+  State<BouhOvalLoadingIndicator> createState() =>
+      _BouhOvalLoadingIndicatorState();
+}
+
+class _BouhOvalLoadingIndicatorState extends State<BouhOvalLoadingIndicator>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.width,
+      height: widget.height,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return CustomPaint(
+            painter: _OvalGradientProgressPainter(
+              progress: _controller.value,
+              colors: const [
+                BColors.primary,
+                BColors.accent,
+                BColors.secondary,
+                BColors.primary,
+              ],
+              strokeWidth: widget.strokeWidth,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _OvalGradientProgressPainter extends CustomPainter {
+  _OvalGradientProgressPainter({
+    required this.progress,
+    required this.colors,
+    this.strokeWidth = 2,
+  });
+
+  final double progress;
+  final List<Color> colors;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final w = (size.width / 2) - strokeWidth;
+    final h = (size.height / 2) - strokeWidth;
+    final rect = Rect.fromCenter(center: center, width: w * 2, height: h * 2);
+
+    final gradient = SweepGradient(
+      startAngle: 0,
+      endAngle: 2 * 3.14159265359,
+      colors: colors,
+    );
+
+    final progressPaint = Paint()
+      ..shader = gradient.createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    const sweepLength = 0.25;
+    final startAngle = progress * 2 * 3.14159265359;
+    final sweepAngle = sweepLength * 2 * 3.14159265359;
+    canvas.drawArc(rect, startAngle, sweepAngle, false, progressPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OvalGradientProgressPainter oldDelegate) {
     return oldDelegate.progress != progress;
   }
 }

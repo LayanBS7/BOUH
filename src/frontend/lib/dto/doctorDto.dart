@@ -11,7 +11,7 @@ class DoctorDto {
   final int yearsOfExperience;
   final String scfhsNumber;
   final String iban;
-  final String? profilePhotoURL;
+  String? profilePhotoURL;
   final String? fcmToken;
   final String registrationStatus;
   final List<ScheduleDto>? schedule;

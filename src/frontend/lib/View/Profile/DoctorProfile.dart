@@ -84,7 +84,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
 
   final ImagePicker _picker = ImagePicker();
 
-  final List<String> _specialties = const ['توتر وقلق', 'خوف', 'حزن', 'تفاؤل'];
+  final List<String> _specialties = const ['توتر وقلق', 'غضب', 'حزن', 'تفاؤل'];
   final List<String> _yearsList = const ['1', '2', '3', '4', '5+'];
 
   @override
@@ -147,7 +147,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
 
     try {
       await AuthService.instance.deleteAccountOnBackend();
-      if (!mounted) return;
+      if(!mounted) return;
       await AuthService.instance.signOut();
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
@@ -157,8 +157,8 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isDeletingAccount = false;
-        _deleteError = 'تعذر حذف الحساب. حاول مرة أخرى.';
+        _isDeletingAccount = false; 
+        _deleteError = e as String;
       });
     }
   }

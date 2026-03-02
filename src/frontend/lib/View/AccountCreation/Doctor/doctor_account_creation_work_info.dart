@@ -175,6 +175,7 @@ class _DoctorAccountCreationStep2State
 
   Future<void> _submitCreateAccount() async {
     final signupData = widget.signupData;
+    print('[DoctorReg Step2] _submitCreateAccount: signupData=${signupData != null ? "present" : "null"}, profileImage=${signupData?.profileImage != null ? signupData!.profileImage!.path : "null"}');
     if (signupData == null || _isSubmitting) return;
     setState(() {
       _qualificationsTouched = true;
@@ -209,10 +210,13 @@ class _DoctorAccountCreationStep2State
     );
 
     try {
+      print('[DoctorReg Step2] _submitCreateAccount: calling AuthService.createDoctorAccount with profileImageFile=${signupData.profileImage != null ? signupData.profileImage!.path : "null"}');
       await AuthService.instance.createDoctorAccount(
         doctorDto: doctorDto,
         password: signupData.password,
+        profileImageFile: signupData.profileImage,
       );
+      print('[DoctorReg Step2] _submitCreateAccount: createDoctorAccount returned');
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const VerifyEmailView()),

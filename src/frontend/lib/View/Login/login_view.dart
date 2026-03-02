@@ -1,10 +1,11 @@
 import 'dart:io' show SocketException;
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:bouh/authentication/AuthLogInRoute.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/View/WelcomePage/welcomePage_view.dart';
+import 'package:bouh/View/HomePage/doctorNavbar.dart';
+import 'package:bouh/View/caregiverHomepage/caregivernavbar.dart';
 import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/widgets/confirmation_popup.dart';
 import 'package:bouh/widgets/email_reset_popup.dart';
@@ -86,13 +87,7 @@ class _LoginViewState extends State<LoginView> {
           context: context,
           barrierDismissible: false,
           builder: (dialogContext) => DoctorPendingPopup(
-            onOk: () {
-              Navigator.pop(dialogContext);
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const AccountTypeView()),
-                (route) => false,
-              );
-            },
+            onOk: () => Navigator.pop(dialogContext),
           ),
         );
       });
@@ -133,14 +128,32 @@ class _LoginViewState extends State<LoginView> {
     setState(() => _isLoggingIn = true);
 
     try {
-      await AuthService.instance.login(email: email, password: password);
+      final role = await AuthService.instance.login(email: email, password: password);
 
       if (!mounted) return;
-      setState(() => _isLoggingIn = false);
+      // Keep overlay on until we navigate (single loading, no second screen)
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginResolverView()),
-      );
+      switch (role) {
+        case 'doctor':
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const DoctorNavbar()),
+          );
+          break;
+        case 'caregiver':
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const CaregiverNavbar()),
+          );
+          break;
+        case 'pending':
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoginView(showPendingDoctorDialog: true)),
+          );
+          break;
+        default:
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const AccountTypeView()),
+          );
+      }
     } on SocketException {
       if (!mounted) return;
       setState(() {
