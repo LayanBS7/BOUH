@@ -1,5 +1,7 @@
 package com.bouh.backend.service.accounts;
+
 import com.bouh.backend.model.Dto.*;
+import com.bouh.backend.model.Dto.accountManagment.accountResponseDto;
 import com.bouh.backend.model.repository.caregiverRepo;
 import com.bouh.backend.model.repository.doctorRepo;
 import org.springframework.stereotype.Service;
@@ -61,25 +63,27 @@ public class accountsService {
         );
     }
 
-    public void deleteCaregiverAccount(String uid) {
-        try {
-            caregiverRepository.deleteCaregiver(uid);
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to delete caregiver account for uid=" + uid, e
-            );
-        }
+public accountResponseDto deleteAccount(String uid) {
+
+    String role = resolveAuthState(uid).getRole();
+
+    if (role.equals("caregiver")) {
+        caregiverRepository.deleteCaregiver(uid);
+        return new accountResponseDto(true, "ACCOUNT_DELETED", "تم حذف الحساب");
     }
 
-    public void deleteDoctorAccount(String uid) {
-        try {
-            doctorRepository.deleteDoctor(uid);
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to delete doctor account for uid=" + uid, e
-            );
-        }
-    }
+    String result = doctorRepository.deleteDoctor(uid);
 
+    switch (result) {
+        case "deleted":
+            return new accountResponseDto(true, "ACCOUNT_DELETED", "تم حذف الحساب");
+        case "upcoming-appointment-found":
+            return new accountResponseDto(false, "HAS_UPCOMING_APPOINTMENTS",
+                    "لا يمكن حذف الحساب لوجود مواعيد قادمة");
+        default:
+            return new accountResponseDto(false, "UNKNOWN_ERROR",
+                    "حدث خطأ غير متوقع");
+    }
+}
 
 }

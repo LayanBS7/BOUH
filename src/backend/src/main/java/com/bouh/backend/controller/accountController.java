@@ -1,5 +1,7 @@
 package com.bouh.backend.controller;
+
 import com.bouh.backend.model.Dto.*;
+import com.bouh.backend.model.Dto.accountManagment.accountResponseDto;
 import com.bouh.backend.service.accounts.accountsService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,7 @@ import java.util.Map;
 public class accountController {
 
     private final accountsService accountService;
+
     public accountController(accountsService accountService) {
         this.accountService = accountService;
     }
@@ -28,17 +31,15 @@ public class accountController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
                             "error", "UNAUTHORIZED",
-                            "message", "User is not authenticated"
-                    ));
+                            "message", "User is not authenticated"));
         }
-        //who is making this request
+        // who is making this request
         String uid = authentication.getName();
         log.info("createCaregiver called for uid={}", uid);
 
         accountService.createCaregiverAccount(uid, dto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
-
 
     @PostMapping("/register/doctors")
     public ResponseEntity<Map<String, Object>> createDoctor(
@@ -48,18 +49,16 @@ public class accountController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
                             "error", "UNAUTHORIZED",
-                            "message", "User is not authenticated"
-                    ));
+                            "message", "User is not authenticated"));
         }
         log.info("createDoctor called for uid={}", authentication.getName());
 
-        //who is making this request
+        // who is making this request
         String uid = authentication.getName();
 
         accountService.createDoctorAccount(uid, dto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
-
 
     @GetMapping("/me")
     public ResponseEntity<?> me(Authentication authentication) {
@@ -67,11 +66,10 @@ public class accountController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         try {
-            //resolving users roles
+            // resolving users roles
             String uid = authentication.getName();
             return ResponseEntity.ok(
-                    accountService.resolveAuthState(uid)
-            );
+                    accountService.resolveAuthState(uid));
         } catch (Exception e) {
             log.error("Failed to resolve role", e);
             return ResponseEntity
@@ -81,24 +79,14 @@ public class accountController {
     }
 
     @DeleteMapping("/delete")
-    public ResponseEntity<?> deleteCaregiver(Authentication authentication){
+    public ResponseEntity<accountResponseDto> deleteUser(Authentication authentication) {
 
-        //who is making this request
+        // who is making this request
         String uid = authentication.getName();
-        log.info("called for user uid={}", uid);
-        try {
-        //if caregiver or doctor
-        if(accountService.resolveAuthState(uid).getRole().equals("caregiver"))
-            accountService.deleteCaregiverAccount(uid);
-        else accountService.deleteDoctorAccount(uid);
+        accountResponseDto response = accountService.deleteAccount(uid);
 
-        return ResponseEntity.status(HttpStatus.OK).build();
-        } catch (Exception e) {
-            log.error("Failed delete account", e);
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed deleting the account");
-        }
+        return ResponseEntity
+                .status(response.isSuccess() ? 200 : 409)
+                .body(response);
     }
-
 }
