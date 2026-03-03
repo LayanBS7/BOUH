@@ -48,13 +48,56 @@ class _LoginViewState extends State<LoginView> {
   bool _passwordTouched = false;
 
   static String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty)
+    if (value == null || value.trim().isEmpty) {
       return 'يرجى إدخال البريد الإلكتروني';
+    }
+    final trimmed = value.trim();
     final emailRegex = RegExp(
       r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
     );
-    if (!emailRegex.hasMatch(value.trim()))
+    if (!emailRegex.hasMatch(trimmed)) {
       return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+
+    // Provider/domain enforcement: accept only a known set of email providers.
+    const allowedDomains = <String>{
+      'gmail.com',
+      'outlook.com',
+      'hotmail.com',
+      'yahoo.com',
+      'icloud.com',
+      'live.com',
+    };
+
+    final parts = trimmed.split('@');
+    if (parts.length != 2) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+    final domain = parts.last.toLowerCase();
+    final domainParts = domain.split('.');
+    if (domainParts.length < 2) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+
+    // Validate top-level domain (e.g. reject gmail.vrgt, gmail.ff).
+    const allowedTlds = <String>{
+      'com',
+      'net',
+      'org',
+      'edu',
+      'gov',
+      'sa',
+    };
+    final tld = domainParts.last;
+    final tldRegex = RegExp(r'^[a-zA-Z]{2,}$');
+    if (!tldRegex.hasMatch(tld) || !allowedTlds.contains(tld)) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+
+    if (!allowedDomains.contains(domain)) {
+      return 'يرجى استخدام بريد من مزوّد معتمد (مثل Gmail / Outlook)';
+    }
+
     return null;
   }
 

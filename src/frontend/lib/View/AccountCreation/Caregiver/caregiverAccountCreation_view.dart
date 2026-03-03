@@ -128,7 +128,6 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
     if (!emailRegex.hasMatch(trimmed)) {
       return 'يرجى إدخال بريد إلكتروني صحيح';
     }
-
     // Provider/domain enforcement: accept only a known set of email providers.
     // Adjust this list if your product allows additional domains.
     const allowedDomains = <String>{
@@ -145,6 +144,26 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
       return 'يرجى إدخال بريد إلكتروني صحيح';
     }
     final domain = parts.last.toLowerCase();
+    final domainParts = domain.split('.');
+    if (domainParts.length < 2) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+
+    // Validate top-level domain to avoid fake endings like ".vrgt.ff".
+    const allowedTlds = <String>{
+      'com',
+      'net',
+      'org',
+      'edu',
+      'gov',
+      'sa',
+    };
+    final tld = domainParts.last;
+    final tldRegex = RegExp(r'^[a-zA-Z]{2,}$');
+    if (!tldRegex.hasMatch(tld) || !allowedTlds.contains(tld)) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+
     if (!allowedDomains.contains(domain)) {
       return 'يرجى استخدام بريد من مزوّد معتمد (مثل Gmail / Outlook)';
     }

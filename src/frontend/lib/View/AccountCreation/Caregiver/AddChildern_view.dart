@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io' show SocketException;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
@@ -184,10 +186,14 @@ class _CaregiverAccountCreationStep2State
         }
       } catch (e) {
         if (mounted) {
-          final message =
-              e is FirebaseAuthException && e.code == 'email-already-in-use'
-              ? 'البريد الإلكتروني مستخدم بالفعل بحساب آخر.'
-              : 'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.';
+          final String message;
+          if (e is FirebaseAuthException && e.code == 'email-already-in-use') {
+            message = 'البريد الإلكتروني مستخدم بالفعل بحساب آخر.';
+          } else if (e is SocketException || e is TimeoutException) {
+            message = 'الخادم لا يستجيب أو لا يوجد اتصال. تحقق من الإنترنت وحاول مرة أخرى.';
+          } else {
+            message = 'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.';
+          }
           setState(() {
             _isSubmitting = false;
             _submitError = message;

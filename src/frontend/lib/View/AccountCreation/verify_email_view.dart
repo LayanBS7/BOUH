@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show SocketException;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -125,12 +126,12 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
           await AuthService.instance.createPendingDoctorProfileIfAny();
           await AuthService.instance.createPendingCaregiverProfileIfAny();
           _navigateToLogin();
-        } catch (_) {
-          _setInlineMessage(
-            'تم تفعيل البريد ولكن فشل إنشاء الحساب في الخادم. حاول مرة أخرى.',
-            color: BColors.validationError,
-          );
-          _navigateToLogin();
+        } catch (e) {
+          final String msg = (e is SocketException || e is TimeoutException)
+              ? 'الخادم لا يستجيب أو لا يوجد اتصال. تحقق من الإنترنت ثم اضغط "تم تفعيل البريد الالكتروني" مرة أخرى.'
+              : 'تم تفعيل البريد ولكن فشل إنشاء الحساب في الخادم. اضغط "تم تفعيل البريد الالكتروني" للمحاولة مرة أخرى.';
+          _setInlineMessage(msg, color: BColors.validationError);
+          // Do not navigate: user stays on page and can tap the button again to retry.
         }
       } else {
         if (_canResend) {

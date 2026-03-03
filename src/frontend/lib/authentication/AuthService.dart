@@ -26,7 +26,7 @@ class AuthService {
   Future<String?> get role => _session.role;
 
 
-  /// Login using Firebase, then resolve role from backend
+  //Login using Firebase, then resolve role from backend
   Future<String?> login({
     required String email,
     required String password,
@@ -106,7 +106,6 @@ class AuthService {
 
     _pendingDoctorProfile = doctorDto;
     _pendingDoctorProfileImage = profileImageFile;
-    print('[AuthService] createDoctorAccount: stored _pendingDoctorProfileImage=${_pendingDoctorProfileImage != null ? _pendingDoctorProfileImage!.path : "null"}');
     await _setSessionFromUser(user);
     return user;
   }
@@ -144,7 +143,6 @@ class AuthService {
     }
 
     if (_pendingDoctorProfileImage != null) {
-      print('[AuthService] createPendingDoctorProfileIfAny: uploading profile image path=${_pendingDoctorProfileImage!.path}');
       final imageUrl = await _uploadDoctorProfileImageToFirebaseStorage(
         _pendingDoctorProfileImage!,
       );
@@ -180,7 +178,7 @@ class AuthService {
   Future<String> _getRoleFromBackend(String idToken) async {
     print('logging in. . .');
     final uri =
-        Uri.parse('${ApiConfig.physicalBaseUrl}/api/accounts/me');
+        Uri.parse('${ApiConfig.baseUrl}/api/accounts/me');
 
     final response = await http.get(
       uri,
@@ -218,7 +216,7 @@ class AuthService {
 
 
   //Uploads doctor profile image to Firebase Storage.
-  //Path: doctorProfileImages/{userId}_{timestamp}.jpg
+  //with Path: doctorProfileImages/{userId}_{timestamp}.jpg
   Future<String> _uploadDoctorProfileImageToFirebaseStorage(File file) async {
     print('[AuthService] _uploadDoctorProfileImageToFirebaseStorage: file=${file.path}');
     final user = _auth.currentUser;
@@ -250,7 +248,7 @@ class AuthService {
     }
 
     final uri = Uri.parse(
-      '${ApiConfig.physicalDeviceBaseUrl}/api/accounts/register/doctors',
+      '${ApiConfig.baseUrl}/api/accounts/register/doctors',
     );
 
     final body = doctorDto.toJson()..['doctorId'] = user.uid;
@@ -291,7 +289,7 @@ class AuthService {
     }
 
     final uri = Uri.parse(
-      '${ApiConfig.physicalDeviceBaseUrl}/api/accounts/register/caregivers',
+      '${ApiConfig.baseUrl}/api/accounts/register/caregivers',
     );
 
     final response = await http.post(
@@ -329,7 +327,7 @@ class AuthService {
     }
 
     final uri = Uri.parse(
-      '${ApiConfig.physicalBaseUrl}/api/accounts/delete',
+      '${ApiConfig.baseUrl}/api/accounts/delete',
     );
     final response = await http.delete(
       uri,
@@ -341,8 +339,6 @@ class AuthService {
 
     print('response.statusCode: ${response.statusCode}');
      if (response.statusCode == 200) {
-     //sign out AFTER backend success
-     // await FirebaseAuth.instance.signOut(); 
       return '';
      }
      else if (response.statusCode == 409) {

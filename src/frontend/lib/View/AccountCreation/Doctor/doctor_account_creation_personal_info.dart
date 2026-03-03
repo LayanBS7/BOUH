@@ -124,7 +124,27 @@ class _DoctorAccountCreationStep1State
     };
     final parts = trimmed.split('@');
     if (parts.length != 2) return 'يرجى إدخال بريد إلكتروني صحيح';
-    if (!allowedDomains.contains(parts.last.toLowerCase())) {
+
+    final domain = parts.last.toLowerCase();
+    final domainParts = domain.split('.');
+    if (domainParts.length < 2) return 'يرجى إدخال بريد إلكتروني صحيح';
+
+    // Validate top-level domain to avoid fake endings like ".vrgt.ff".
+    const allowedTlds = <String>{
+      'com',
+      'net',
+      'org',
+      'edu',
+      'gov',
+      'sa',
+    };
+    final tld = domainParts.last;
+    final tldRegex = RegExp(r'^[a-zA-Z]{2,}$');
+    if (!tldRegex.hasMatch(tld) || !allowedTlds.contains(tld)) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+
+    if (!allowedDomains.contains(domain)) {
       return 'يرجى استخدام بريد من مزوّد معتمد (مثل Gmail / Outlook)';
     }
     return null;
