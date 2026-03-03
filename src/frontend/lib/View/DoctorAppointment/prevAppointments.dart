@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 
-import 'package:bouh/View/DoctorAppointment/available_schedule_screen.dart';
+import 'package:bouh/View/DoctorAppointment/AvailableScheduleScreen.dart';
 import 'package:bouh/View/HomePage/widgets/appointment_card.dart';
 import 'package:bouh/View/DoctorAppointment/upAppointments.dart';
 import 'package:bouh/View/HomePage/widgets/doctorBottomNav.dart';
