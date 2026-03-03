@@ -23,7 +23,6 @@ import java.util.Set;
  * Notes:
  * - Time slots are fixed (4:00 PM -> 9:00 PM, 30 minutes, total = 10 slots)
  * - Editing allowed only from today up to 2 months ahead
- * - Past days are returned for display but NOT editable
  */
 @Service
 public class AvailabilityScheduleService {
@@ -35,7 +34,7 @@ public class AvailabilityScheduleService {
         this.scheduleRepo=scheduleRepo;
     }
     
-    //Allowed editing windo = today + 2 months
+    //Allowed editing window = today + 2 months
     private LocalDate today() { return LocalDate.now(); }
     private LocalDate maxAllowed() { return LocalDate.now().plusMonths(2); }
 
@@ -152,10 +151,10 @@ public class AvailabilityScheduleService {
      *
      * Logic:
      * - For each day in request:
-     *   - Validate date is within editable window (today → today + 2 months)
+     *   - Validate date is within editable window (today -> today + 2 months)
      *   - Validate indexes are unique and within range 0..9
      *   - Read existing day doc to know which offered slots are already booked
-     *   - If request removes any booked slot → reject
+     *   - If request removes any booked slot -> reject
      *   - Save offered slots only (as objects {index, booked})
      *
      * Example Request Body:

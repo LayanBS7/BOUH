@@ -1,3 +1,4 @@
+import 'package:bouh/widgets/confirmation_popup.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -20,7 +21,7 @@ class _AvailableScheduleScreenState extends State<AvailableScheduleScreen> {
   late final String doctorId;
   late final AvailabilityService _service = AvailabilityService();
 
-  // schedule loaded from backend (days for current+next month)
+  // schedule loaded from backend
   List<AvailabilityDayDto> scheduleDays = [];
 
   // loading + errors
@@ -461,7 +462,6 @@ class _AvailableScheduleScreenState extends State<AvailableScheduleScreen> {
           defaultBuilder: (context, day, _) {
             final isDisabled = !_isEditableDay(day);
 
-            // IMPORTANT: still check availability even if day is disabled
             final hasAvailability = _isAvailable(day);
 
             if (isDisabled) {
@@ -687,6 +687,16 @@ class _AvailableScheduleScreenState extends State<AvailableScheduleScreen> {
         onPressed: !canSave
             ? null
             : () async {
+                final confirmed = await ConfirmationPopup.show(
+                  context,
+                  title: "تأكيد الحفظ",
+                  message: "هل أنت متأكد أنك تريد حفظ التغييرات على الجدول؟",
+                  confirmText: "حفظ",
+                  cancelText: "إلغاء",
+                );
+
+                if (!confirmed) return;
+
                 //  Make sure booked slots remain offered (just in case)
                 for (int i = 0; i < slotCount; i++) {
                   if (_isSlotBooked(i)) {
@@ -712,18 +722,18 @@ class _AvailableScheduleScreenState extends State<AvailableScheduleScreen> {
 
                 try {
                   setState(() => isLoading = true);
+
                   await _service.updateSchedule(
                     doctorId: doctorId,
                     days: payloadDays,
                   );
 
-                  // Reload schedule from backend to reflect any preserved booked flags
                   await _loadScheduleForCurrentWindow();
 
                   setState(() {
                     draftByDate.clear();
                     originalByDate.clear();
-                    isEditMode = false; // close edit
+                    isEditMode = false;
                   });
 
                   if (mounted) {
@@ -740,7 +750,6 @@ class _AvailableScheduleScreenState extends State<AvailableScheduleScreen> {
                   setState(() => isLoading = false);
                 }
               },
-
         child: const Text(
           'حفظ',
           style: TextStyle(color: BColors.white, fontSize: 16),

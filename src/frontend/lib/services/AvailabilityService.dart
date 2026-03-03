@@ -31,14 +31,6 @@ class AvailabilityService {
   }
 
   /// PUT /api/doctors/{doctorId}/doctorAvailability
-  ///
-  /// Body:
-  /// {
-  ///   "days": [
-  ///     { "date": "yyyy-MM-dd", "offeredSlotIndexes": [0,2,5] },
-  ///     ...
-  ///   ]
-  /// }
 
   Future<void> updateSchedule({
     required String doctorId,
