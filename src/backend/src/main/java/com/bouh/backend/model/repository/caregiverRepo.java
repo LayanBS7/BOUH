@@ -1,43 +1,47 @@
 package com.bouh.backend.model.repository;
+
 import com.bouh.backend.model.Dto.caregiverDto;
 import com.bouh.backend.model.Dto.childDto;
 import com.google.api.core.ApiFuture;
+import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
-import com.google.cloud.firestore.CollectionReference;
 import com.google.firebase.auth.FirebaseAuth;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
-@Slf4j //for log debugging
+@Slf4j // for log debugging
 @Repository
 public class caregiverRepo {
 
-    //springBoot on config it will inject the globally created FireStore bean (in Config File) into this Repo instance of fireStore
+    // springBoot on config it will inject the globally created FireStore bean
+    // (in Config File) into this Repo instance of fireStore
     private final Firestore firestore;
+
     public caregiverRepo(Firestore firestore) {
-        this.firestore = firestore; //set the instance so this repo use it
+        this.firestore = firestore; // set the instance so this repo use it
     }
 
     public void createCaregiver(String uid, caregiverDto dto) {
         try {
-            //to prevent having a caregiver without connecting it to its children
+            // to prevent having a caregiver without connecting it to its children
             WriteBatch batch = firestore.batch();
 
-            DocumentReference caregiverRef =
-                    firestore.collection("caregivers").document(uid);
+            DocumentReference caregiverRef = firestore.collection("caregivers").document(uid);
 
-            Map<String, Object> caregiverData = Map.of(
-                    "caregiverId", uid,
-                    "name", dto.getName() != null ? dto.getName() : "",
-                    "email", dto.getEmail(),
-                    "fcmToken", dto.getFcmToken()
-            );
+            Map<String, Object> caregiverData = new HashMap<>();
+            caregiverData.put("caregiverId", uid);
+            caregiverData.put("name", dto.getName() != null ? dto.getName() : "");
+            caregiverData.put("email", dto.getEmail());
+            caregiverData.put("fcmToken", dto.getFcmToken());
             batch.set(caregiverRef, caregiverData);
 
             if (dto.getChildren() != null) {
@@ -45,38 +49,18 @@ public class caregiverRepo {
                 for (childDto child : dto.getChildren()) {
 
                     String childId = UUID.randomUUID().toString();
-
-                    DocumentReference childRef =
-                            caregiverRef.collection("children").document(childId);
-
+                    DocumentReference childRef = caregiverRef.collection("children").document(childId);
                     Map<String, Object> childData = Map.of(
                             "childId", childId,
                             "name", child.getName(),
-                            "dateOfBirth", child.getDateOfBirth(),
+                            "dateOfBirth", ConvertChildDOB(child.getDateOfBirth()),
                             "gender", child.getGender(),
-                            "createdAt", FieldValue.serverTimestamp()
-                    );
+                            "createdAt", FieldValue.serverTimestamp());
 
                     batch.set(childRef, childData);
-
-                    //create one empty drawing per child
-                    String drawingId = UUID.randomUUID().toString();
-
-                    DocumentReference drawingRef =
-                            childRef.collection("drawings").document(drawingId);
-
-                    Map<String, Object> drawingData = new HashMap<>();
-                    drawingData.put("drawingId", drawingId);
-                    drawingData.put("imageURL", null);
-                    drawingData.put("emotionClass", null);
-                    drawingData.put("emotionalInterpretation", null);
-                    drawingData.put("doctorsIDSuggestion", null);
-                    drawingData.put("createdAt", null);
-
-                    batch.set(drawingRef, drawingData);
                 }
             }
-            //commit everything atomically
+            // commit everything atomically
             batch.commit().get();
 
         } catch (InterruptedException e) {
@@ -105,21 +89,30 @@ public class caregiverRepo {
 
     public void deleteCaregiver(String uid) {
         try {
-            DocumentReference caregiverRef =
-                    firestore.collection("caregivers").document(uid);
+            DocumentReference caregiverRef = firestore.collection("caregivers").document(uid);
 
-            //to apply recursive delete on all info of the related account
             deleteAccountAppointments(uid);
-            deleteAccountChildren(caregiverRef);
-            caregiverRef.delete().get();
-
-            //delete Firebase Authentication account
+            // to delete the collection and all it subCollectins
+            firestore.recursiveDelete(caregiverRef).get();
+            // delete Firebase Authentication account
             FirebaseAuth.getInstance().deleteUser(uid);
 
         } catch (Exception e) {
             log.error("Failed to delete caregiver account for uid={}", uid, e);
             throw new RuntimeException("Failed to delete caregiver account", e);
         }
+    }
+
+    public Timestamp ConvertChildDOB(LocalDate childDob) {
+
+        if (childDob == null) {
+            return null;
+        }
+
+        return Timestamp.of(
+                Date.from(
+                        childDob.atStartOfDay(ZoneId.systemDefault())
+                                .toInstant()));
     }
 
     private void deleteAccountAppointments(String uid) throws Exception {
@@ -134,32 +127,4 @@ public class caregiverRepo {
             doc.getReference().delete().get();
         }
     }
-    private void deleteAccountChildren(DocumentReference caregiverRef) throws Exception {
-
-        CollectionReference childrenRef = caregiverRef.collection("children");
-
-        List<QueryDocumentSnapshot> children =
-                childrenRef.get().get().getDocuments();
-
-        for (QueryDocumentSnapshot childDoc : children) {
-
-            // Delete drawings subCollection first
-            deleteAccountDrawings(childDoc.getReference());
-
-            // Delete child document
-            childDoc.getReference().delete().get();
-        }
-    }
-    private void deleteAccountDrawings(DocumentReference childRef) throws Exception {
-
-        CollectionReference drawingsRef = childRef.collection("drawings");
-
-        List<QueryDocumentSnapshot> drawings =
-                drawingsRef.get().get().getDocuments();
-
-        for (QueryDocumentSnapshot drawing : drawings) {
-            drawing.getReference().delete().get();
-        }
-    }
-
 }

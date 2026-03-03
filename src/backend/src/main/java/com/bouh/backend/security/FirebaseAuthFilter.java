@@ -1,4 +1,5 @@
 package com.bouh.backend.security;
+
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
@@ -15,7 +16,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
-
 
 @Slf4j
 @Component // Registers this filter as a Spring-managed component
@@ -47,20 +47,18 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
                 // - validates the signature
                 // - checks expiration
                 // - confirms it was issued by Firebase
-                FirebaseToken decodedToken =
-                        FirebaseAuth.getInstance().verifyIdToken(token);
+                FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
 
                 // Extract the Firebase user ID (UID) from the token
                 String uid = decodedToken.getUid();
 
                 // Create a Spring Security Authentication object
                 // This tells Spring that the user is successfully authenticated
-                Authentication authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                uid,                        // principal (user identity)
-                                null,                       // credentials (not needed)
-                                List.of(new SimpleGrantedAuthority("ROLE_USER"))   // authorities/roles (none for now)
-                        );
+                Authentication authentication = new UsernamePasswordAuthenticationToken(
+                        uid, // principal (user identity)
+                        null, // credentials (not needed)
+                        List.of(new SimpleGrantedAuthority("ROLE_USER")) // authorities/roles (none for now)
+                );
 
                 // Store the Authentication in the SecurityContext
                 // After this, controllers can access the authenticated user
@@ -75,8 +73,11 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
                 return; // Stop request processing
             }
         }
+        if (header == null || !header.startsWith("Bearer ")) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
         log.info("FirebaseAuthFilter hit");
-
 
         // Continue the filter chain:
         // - next filters

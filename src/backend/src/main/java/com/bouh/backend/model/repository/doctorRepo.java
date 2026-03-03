@@ -1,20 +1,14 @@
 package com.bouh.backend.model.repository;
-
-import com.bouh.backend.model.Dto.appointmentDto;
 import com.bouh.backend.model.Dto.doctorDto;
-import com.bouh.backend.model.Dto.v2appointmentDto;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import com.google.firebase.auth.FirebaseAuth;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
-import java.time.*;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import com.google.firebase.cloud.StorageClient;
 import com.google.cloud.storage.Bucket;
@@ -55,8 +49,6 @@ public class doctorRepo {
 
             batch.set(doctorRef, doctorData);
             batch.commit().get();
-            //DELETE
-            seedDoctorAppointments(uid);
 
         } catch (Exception e) {
             log.error("Failed to create doctor profile for uid={}", uid, e);
@@ -87,30 +79,6 @@ public class doctorRepo {
         }
     }
 
-    /**
-     * Read doctor document from doctors/{doctorId}.
-     * Returns name, areaOfKnowledge, profilePhotoURL.
-     */
-    public doctorDto findById(String doctorId)
-            throws ExecutionException, InterruptedException {
-
-        DocumentReference ref = firestore.collection("doctors").document(doctorId);
-
-        DocumentSnapshot doc = ref.get().get();
-
-        if (doc == null || !doc.exists()) {
-            return null;
-        }
-
-        doctorDto dto = new doctorDto();
-        dto.setDoctorId(doctorId);
-        dto.setName(getString(doc, "name"));
-        dto.setAreaOfKnowledge(getString(doc, "areaOfKnowledge"));
-        dto.setProfilePhotoURL(getString(doc, "profilePhotoURL"));
-
-        return dto;
-    }
-
     private static String getString(DocumentSnapshot doc, String field) {
         Object value = doc.get(field);
         return value == null ? null : value.toString();
@@ -134,15 +102,15 @@ public class doctorRepo {
             if (doctor == null) {
                 throw new RuntimeException("Doctor not found. Aborting deletion.");
             }
-            
-            //check if no upcoming exists to allow account delete
-            if( !deleteAccountAppointments(uid) ){
-               return "upcoming-appointment-found";
+
+            // check if no upcoming exists to allow account delete
+            if (!deleteAccountAppointments(uid)) {
+                return "upcoming-appointment-found";
             }
-            
+
             DocumentReference doctorRef = firestore.collection("doctors").document(uid);
 
-            //delete Doctor profile image if exists
+            // delete doctor profile image if exists
             String ImagePathToDelete = doctor.getProfilePhotoURL();
             if (ImagePathToDelete != null) {
                 deleteAccountProfileImage(ImagePathToDelete);
@@ -150,7 +118,7 @@ public class doctorRepo {
 
             firestore.recursiveDelete(doctorRef).get();
 
-            // at last delete Firebase Authentication account
+            // delete Firebase Authentication account
             FirebaseAuth.getInstance().deleteUser(uid);
 
             return "deleted";
@@ -175,79 +143,29 @@ public class doctorRepo {
 
     private Boolean deleteAccountAppointments(String uid) throws Exception {
 
-        //todays date
         Timestamp now = Timestamp.now();
 
-        //fetch the frist upcoming appointemnt date and time
+        // fetch the frist upcoming appointemnt
         ApiFuture<QuerySnapshot> upcomingFuture = firestore.collection("appointments")
                 .whereEqualTo("doctorId", uid)
                 .whereGreaterThan("date", now)
                 .limit(1)
                 .get();
 
-        //if doctor has upcomings
+        // if doctor has upcomings, abort account deletion
         if (!upcomingFuture.get().isEmpty()) {
-             return false;
-           // throw new RuntimeException("Doctor has upcoming appointments, account can notbe deleted.");
+            return false;
         }
 
-        //loop and delete on every appointment related to that doctor
-        List<QueryDocumentSnapshot> documents = upcomingFuture.get().getDocuments();
+        // delete all appointments for this doctor
+        ApiFuture<QuerySnapshot> allAppointmentsFuture = firestore.collection("appointments")
+                .whereEqualTo("doctorId", uid)
+                .get();
+
+        List<QueryDocumentSnapshot> documents = allAppointmentsFuture.get().getDocuments();
         for (QueryDocumentSnapshot doc : documents) {
             doc.getReference().delete().get();
         }
         return true;
     }
-
-public void seedDoctorAppointments(String doctorId) throws Exception {
-
-
-    List<String> dates = Arrays.asList(
-            "2025-03-04",
-            "2025-01-04",
-            "2026-02-15",
-            "2026-01-12",
-            "2025-12-03",
-            "2026-01-02"
-    );
-
-    ZoneId zone = ZoneId.of("Asia/Riyadh");
-
-    int counter = 1;
-
-    for (String dateStr : dates) {
-
-        String appointmentId = "ReemTests_"+UUID.randomUUID().toString();
-
-        LocalDate date = LocalDate.parse(dateStr);
-
-        LocalDateTime startDateTime = date.atTime(12, 23);
-
-        Timestamp startTimestamp = Timestamp.of(
-                java.util.Date.from(startDateTime.atZone(zone).toInstant())
-        );
-
-        v2appointmentDto appointment = new v2appointmentDto();
-        appointment.setAppointmentId(appointmentId);
-        appointment.setDoctorId(doctorId);
-        appointment.setCaregiverId("testCaregiver" + counter);
-        appointment.setChildId("testChild" + counter);
-        appointment.setDate(startTimestamp);
-        appointment.setTimeSlotId("slot" + counter);
-        appointment.setMeetingLink("https://meet.test/" + appointmentId);
-        appointment.setAmount(200L);
-        appointment.setStatus(1);
-        appointment.setPaymentIntentId("pi_test_" + counter);
-
-        firestore.collection("appointments")
-                .document(appointmentId)
-                .set(appointment)
-                .get();
-
-        counter++;
-    }
-
-    System.out.println("Appointments seeded successfully.");
-
-}
 }

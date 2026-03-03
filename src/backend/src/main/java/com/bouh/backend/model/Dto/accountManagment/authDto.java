@@ -1,4 +1,4 @@
-package com.bouh.backend.model.Dto;
+package com.bouh.backend.model.Dto.accountManagment;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
