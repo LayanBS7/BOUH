@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:bouh/View/HomePage/doctorNavbar.dart';
 import 'package:bouh/View/Login/login_view.dart';
-import 'package:bouh/View/WelcomePage/splash_view.dart';
 import 'package:bouh/View/WelcomePage/welcomePage_view.dart';
 import 'package:bouh/View/caregiverHomepage/caregivernavbar.dart';
 import 'package:bouh/authentication/AuthService.dart';
+import 'package:bouh/widgets/loading_overlay.dart';
 
 //Resolves route from session role set by backend at login
 class LoginResolverView extends StatefulWidget {
@@ -22,6 +22,11 @@ class _LoginResolverViewState extends State<LoginResolverView> {
   }
 
   Future<void> _resolve() async {
+    //On app start, Firebase may already have a currentUser but our in-memory
+    //AuthSession has no JWT yet. Refresh it so _session.idToken is populated
+    //before we route based on the persisted role.
+    await AuthService.instance.refreshSession();
+
     final role = await AuthService.instance.role;
 
     if (!mounted) return;
@@ -50,6 +55,6 @@ class _LoginResolverViewState extends State<LoginResolverView> {
 
   @override
   Widget build(BuildContext context) {
-    return const SplashView();
+    return const Scaffold(body: BouhLoadingOverlay());
   }
 }

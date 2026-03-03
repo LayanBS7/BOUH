@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../dto/caregiverDto.dart';
 import '../dto/doctorDto.dart';
 import 'AuthSession.dart';
+import 'dart:io';
 
-/// Auth service:
-/// login / logout , reset password , create accounts, register profiles on backend
+
+//Auth service: login / logout , reset password , create accounts, register profiles on backend
 class AuthService {
   AuthService._();
 
@@ -19,11 +21,12 @@ class AuthService {
 
   CaregiverDto? _pendingCaregiverProfile;
   DoctorDto? _pendingDoctorProfile;
+  File? _pendingDoctorProfileImage;
 
   Future<String?> get role => _session.role;
 
 
-  /// Login using Firebase, then resolve role from backend
+  //Login using Firebase, then resolve role from backend
   Future<String?> login({
     required String email,
     required String password,
@@ -56,8 +59,7 @@ class AuthService {
     await _session.clearSession(uid);
   }
 
-  /// Send password reset email
-  /// Returns null on success, or localized error message on failure
+  //Send password reset email
   Future<String?> sendPasswordResetEmail({
     required String email,
   }) async {
@@ -82,11 +84,13 @@ class AuthService {
     }
   }
 
-  // Account creation (FirebaseAuth) doctor, no profile on backend yet.
+  //Account creation (FirebaseAuth) doctor, no profile on backend yet.
   Future<User> createDoctorAccount({
     required DoctorDto doctorDto,
     required String password,
+    File? profileImageFile,
   }) async {
+    print('[AuthService] createDoctorAccount: profileImageFile=${profileImageFile != null ? profileImageFile.path : "null"}');
     final credential = await _auth.createUserWithEmailAndPassword(
       email: doctorDto.email.trim(),
       password: password,
@@ -101,11 +105,12 @@ class AuthService {
     }
 
     _pendingDoctorProfile = doctorDto;
+    _pendingDoctorProfileImage = profileImageFile;
     await _setSessionFromUser(user);
     return user;
   }
 
-  // Account creation (FirebaseAuth) caregiver, no profile on backend yet.
+  //Account creation (FirebaseAuth) caregiver, no profile on backend yet.
   Future<User> createCaregiverAccount({
     required CaregiverDto caregiverDto,
     required String password,
@@ -128,17 +133,36 @@ class AuthService {
     return user;
   }
 
-  // Pending profile registration (Backend) doctor, no profile on backend yet.
+  //Pending profile registration (Backend) doctor, no profile on backend yet.
   Future<bool> createPendingDoctorProfileIfAny() async {
+    print('[AuthService] createPendingDoctorProfileIfAny: started');
     final dto = _pendingDoctorProfile;
-    if (dto == null) return false;
+    if (dto == null) {
+      print('[AuthService] createPendingDoctorProfileIfAny: no pending doctor profile, skipping');
+      return false;
+    }
+
+    if (_pendingDoctorProfileImage != null) {
+      final imageUrl = await _uploadDoctorProfileImageToFirebaseStorage(
+        _pendingDoctorProfileImage!,
+      );
+      print('[AuthService] createPendingDoctorProfileIfAny: upload result imageUrl=${imageUrl.isEmpty ? "(empty)" : imageUrl}');
+      if (imageUrl.isNotEmpty) {
+        dto.profilePhotoURL = imageUrl;
+        print('[AuthService] createPendingDoctorProfileIfAny: set dto.profilePhotoURL');
+      }
+      _pendingDoctorProfileImage = null;
+    } else {
+      print('[AuthService] createPendingDoctorProfileIfAny: no pending profile image');
+    }
 
     await _registerDoctorOnBackend(dto);
     _pendingDoctorProfile = null;
+    print('[AuthService] createPendingDoctorProfileIfAny: done, doctor registered on backend');
     return true;
   }
 
-  // Pending profile registration (Backend) caregiver, no profile on backend yet.
+  //Pending profile registration (Backend) caregiver, no profile on backend yet.
   Future<bool> createPendingCaregiverProfileIfAny() async {
     final dto = _pendingCaregiverProfile;
     if (dto == null) return false;
@@ -150,9 +174,9 @@ class AuthService {
 
   Future<void> refreshSession() async => _refreshSession();
 
-
-  /// Backend: GET /api/accounts/me
+  //Backend: GET /api/accounts/me
   Future<String> _getRoleFromBackend(String idToken) async {
+    print('logging in. . .');
     final uri =
         Uri.parse('${ApiConfig.baseUrl}/api/accounts/me');
 
@@ -176,13 +200,14 @@ class AuthService {
 
     final map = jsonDecode(response.body) as Map<String, dynamic>;
     final role = map['role'] as String?;
+    print('role: $role');
     final registrationStatus = map['registrationStatus'] as String?;
 
     if (role == null || (role != 'doctor' && role != 'caregiver')) {
       throw Exception('Invalid role from backend: $role');
     }
 
-    // Doctor with PENDING registration
+    //Doctor with PENDING registration
     if (role == 'doctor' && registrationStatus == 'PENDING') {
       return 'pending';
     }
@@ -190,7 +215,27 @@ class AuthService {
   }
 
 
-  // Backend: POST /api/accounts/register/doctors to register doctor on backend.
+  //Uploads doctor profile image to Firebase Storage.
+  //with Path: doctorProfileImages/{userId}_{timestamp}.jpg
+  Future<String> _uploadDoctorProfileImageToFirebaseStorage(File file) async {
+    print('[AuthService] _uploadDoctorProfileImageToFirebaseStorage: file=${file.path}');
+    final user = _auth.currentUser;
+    if (user == null) {
+      print('[AuthService] _uploadDoctorProfileImageToFirebaseStorage: no current user, returning empty');
+      return '';
+    }
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('doctorProfileImages')
+        .child('${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    print('[AuthService] _uploadDoctorProfileImageToFirebaseStorage: putting file');
+    await ref.putFile(file);
+    final url = await ref.fullPath;
+    print('[AuthService] _uploadDoctorProfileImageToFirebaseStorage: got download URL');
+    return url;
+  }
+
+  //Backend: POST /api/accounts/register/doctors to register doctor on backend.
   Future<void> _registerDoctorOnBackend(DoctorDto doctorDto) async {
     final user = _auth.currentUser;
     if (user == null || !user.emailVerified) {
@@ -229,8 +274,7 @@ class AuthService {
     }
   }
 
-
-  // Backend: POST /api/accounts/register/caregivers to register caregiver on backend.
+  //Backend: POST /api/accounts/register/caregivers to register caregiver on backend.
   Future<void> _registerCaregiverOnBackend(
     CaregiverDto caregiverDto,
   ) async {
@@ -268,9 +312,44 @@ class AuthService {
       );
     }
   }
-
  
-  // Session helper: set session from user
+  //Backend: DELETE /api/accounts/delete to delete account on backend.
+  Future<String?> deleteAccountOnBackend() async {
+    print('[AuthService] deleteAccountOnBackend: started for user ${_auth.currentUser?.uid} with token ${_session.idToken}');
+    
+    final token = _session.idToken;
+    if (token == null || token.isEmpty) {
+      throw StateError('No JWT');
+    }
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('User not found');
+    }
+
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/accounts/delete',
+    );
+    final response = await http.delete(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    print('response.statusCode: ${response.statusCode}');
+     if (response.statusCode == 200) {
+      return '';
+     }
+     else if (response.statusCode == 409) {
+        throw jsonDecode(response.body)['message'] ;
+      }
+      else {
+        throw  jsonDecode(response.body)['message'];
+      }
+  }
+
+  //Session helper: set session from user
   Future<void> _setSessionFromUser(User user) async {
     final token = await user.getIdToken(true);
     if (token == null || token.isEmpty) {
@@ -280,7 +359,7 @@ class AuthService {
     _session.setSession(idToken: token, userId: user.uid);
   }
 
-  // Session helper: refresh session
+  //Session helper: refresh session
   Future<void> _refreshSession() async {
     final user = _auth.currentUser;
     if (user == null) return;

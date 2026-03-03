@@ -1,14 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bouh/dto/doctorSignupData.dart';
 import 'package:bouh/View/AccountCreation/Doctor/doctor_account_creation_work_info.dart';
 import 'package:bouh/widgets/password_strength_widget.dart';
 
-/// Step 1 of doctor account creation: email, password, name, gender.
-/// On success passes [DoctorSignupData] to step 2 (work info) where [DoctorDto] is built and account is created.
 class DoctorAccountCreationStep1 extends StatefulWidget {
   const DoctorAccountCreationStep1({super.key, this.onNext, this.onPickImage});
 
@@ -48,15 +47,24 @@ class _DoctorAccountCreationStep1State
 
   final ImagePicker _picker = ImagePicker();
 
-  bool get _isFormComplete =>
-      _emailCtrl.text.trim().isNotEmpty &&
-      _passCtrl.text.isNotEmpty &&
-      _confirmCtrl.text.isNotEmpty &&
-      _nameCtrl.text.trim().isNotEmpty;
+  bool get _isFormComplete {
+    final nameTrimmed = _nameCtrl.text.trim();
+    final nameUserPart = nameTrimmed.length > _namePrefix.length
+        ? nameTrimmed.substring(_namePrefix.length).trim()
+        : '';
+    return _emailCtrl.text.trim().isNotEmpty &&
+        _passCtrl.text.isNotEmpty &&
+        _confirmCtrl.text.isNotEmpty &&
+        nameUserPart.isNotEmpty;
+  }
+
+  static const String _namePrefix = 'د. ';
 
   @override
   void initState() {
     super.initState();
+    _nameCtrl.text = _namePrefix;
+    _nameCtrl.selection = TextSelection.collapsed(offset: _namePrefix.length);
     _emailFocusNode.addListener(_onEmailFocusChange);
     _passwordFocusNode.addListener(_onPasswordFocusChange);
     _confirmFocusNode.addListener(_onConfirmFocusChange);
@@ -116,7 +124,27 @@ class _DoctorAccountCreationStep1State
     };
     final parts = trimmed.split('@');
     if (parts.length != 2) return 'يرجى إدخال بريد إلكتروني صحيح';
-    if (!allowedDomains.contains(parts.last.toLowerCase())) {
+
+    final domain = parts.last.toLowerCase();
+    final domainParts = domain.split('.');
+    if (domainParts.length < 2) return 'يرجى إدخال بريد إلكتروني صحيح';
+
+    // Validate top-level domain to avoid fake endings like ".vrgt.ff".
+    const allowedTlds = <String>{
+      'com',
+      'net',
+      'org',
+      'edu',
+      'gov',
+      'sa',
+    };
+    final tld = domainParts.last;
+    final tldRegex = RegExp(r'^[a-zA-Z]{2,}$');
+    if (!tldRegex.hasMatch(tld) || !allowedTlds.contains(tld)) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+
+    if (!allowedDomains.contains(domain)) {
       return 'يرجى استخدام بريد من مزوّد معتمد (مثل Gmail / Outlook)';
     }
     return null;
@@ -130,14 +158,19 @@ class _DoctorAccountCreationStep1State
     return null;
   }
 
-  static String? _validateName(String? value) {
-    if (value == null || value.trim().isEmpty) {
+  /// Validates only the user-entered part of the name (after the "د. " prefix).
+  String? _validateName(String? value) {
+    if (value == null || value.trim().length <= _namePrefix.length) {
+      return 'يرجى إدخال الاسم';
+    }
+    final userEntered = value.trim().substring(_namePrefix.length).trim();
+    if (userEntered.isEmpty) {
       return 'يرجى إدخال الاسم';
     }
     final arabicOnly = RegExp(
       r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+$',
     );
-    if (!arabicOnly.hasMatch(value.trim())) {
+    if (!arabicOnly.hasMatch(userEntered)) {
       return 'يرجى إدخال الاسم باللغة العربية فقط';
     }
     return null;
@@ -161,15 +194,28 @@ class _DoctorAccountCreationStep1State
   }
 
   Future<void> _pickImage() async {
+    print('[DoctorReg Step1] _pickImage: started');
     if (widget.onPickImage != null) {
+      print('[DoctorReg Step1] _pickImage: using widget.onPickImage callback');
       final file = await widget.onPickImage!();
-      if (file == null) return;
+      if (file == null) {
+        print('[DoctorReg Step1] _pickImage: callback returned null, user cancelled');
+        return;
+      }
+      print('[DoctorReg Step1] _pickImage: callback returned file path=${file.path}');
       setState(() => _profileImage = file);
+      print('[DoctorReg Step1] _pickImage: _profileImage set from callback');
       return;
     }
+    print('[DoctorReg Step1] _pickImage: picking from gallery');
     final x = await _picker.pickImage(source: ImageSource.gallery);
-    if (x == null) return;
+    if (x == null) {
+      print('[DoctorReg Step1] _pickImage: user cancelled gallery pick');
+      return;
+    }
+    print('[DoctorReg Step1] _pickImage: picked path=${x.path}');
     setState(() => _profileImage = File(x.path));
+    print('[DoctorReg Step1] _pickImage: _profileImage set from gallery');
   }
 
   void _handleNext() {
@@ -192,14 +238,16 @@ class _DoctorAccountCreationStep1State
       password: _passCtrl.text,
       name: _nameCtrl.text.trim(),
       gender: _gender,
+      profileImage: _profileImage,
     );
-
+    print('[DoctorReg Step1] _handleNext: signupData created with profileImage=${_profileImage != null ? _profileImage!.path : "null"}');
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => DoctorAccountCreationStep2(signupData: signupData),
       ),
     );
+    print('[DoctorReg Step1] _handleNext: pushed to Step2 with signupData');
   }
 
   InputDecoration _inputDecoration({Widget? suffixIcon}) {
@@ -345,6 +393,9 @@ class _DoctorAccountCreationStep1State
                           validator: (v) =>
                               _nameTouched ? _validateName(v) : null,
                           onChanged: (_) => setState(() {}),
+                          inputFormatters: [
+                            _DoctorNamePrefixFormatter(prefix: _namePrefix),
+                          ],
                         ),
                         const SizedBox(height: 14),
 
@@ -391,8 +442,10 @@ class _DoctorAccountCreationStep1State
                             children: [
                               IconButton(
                                 onPressed: _pickImage,
-                                icon: const Icon(
-                                  Icons.download_rounded,
+                                icon: Icon(
+                                  _profileImage != null
+                                      ? Icons.edit_rounded
+                                      : Icons.download_rounded,
                                   color: BColors.primary,
                                 ),
                               ),
@@ -630,6 +683,36 @@ class _SegButton extends StatelessWidget {
   }
 }
 
+/// Ensures the name field always starts with "د. " and the prefix cannot be deleted.
+class _DoctorNamePrefixFormatter extends TextInputFormatter {
+  _DoctorNamePrefixFormatter({required this.prefix});
+  final String prefix;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    if (text.length < prefix.length) {
+      return TextEditingValue(
+        text: prefix,
+        selection: TextSelection.collapsed(offset: prefix.length),
+      );
+    }
+    if (!text.startsWith(prefix)) {
+      final newText = prefix + text;
+      final newOffset = (prefix.length + newValue.selection.baseOffset)
+          .clamp(prefix.length, newText.length);
+      return TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newOffset),
+      );
+    }
+    return newValue;
+  }
+}
+
 class _LabeledFormField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
@@ -640,6 +723,7 @@ class _LabeledFormField extends StatelessWidget {
   final Key? fieldKey;
   final String? Function(String?)? validator;
   final ValueChanged<String> onChanged;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _LabeledFormField({
     required this.label,
@@ -651,6 +735,7 @@ class _LabeledFormField extends StatelessWidget {
     this.focusNode,
     this.fieldKey,
     this.validator,
+    this.inputFormatters,
   });
 
   @override
@@ -673,6 +758,7 @@ class _LabeledFormField extends StatelessWidget {
           validator: validator,
           textAlign: TextAlign.right,
           onChanged: onChanged,
+          inputFormatters: inputFormatters,
         ),
       ],
     );

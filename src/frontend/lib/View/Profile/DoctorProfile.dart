@@ -6,6 +6,7 @@ import 'package:bouh/View/HomePage/widgets/doctorBottomNav.dart';
 import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/View/Login/login_view.dart';
 import 'package:bouh/widgets/confirmation_popup.dart';
+import 'package:bouh/widgets/loading_overlay.dart';
 
 class DoctorProfileView extends StatefulWidget {
   const DoctorProfileView({
@@ -65,6 +66,8 @@ class DoctorProfileView extends StatefulWidget {
 
 class _DoctorProfileViewState extends State<DoctorProfileView> {
   bool _isEditing = false;
+  String? _deleteError;
+  bool _isDeletingAccount = false;
 
   late final TextEditingController _emailCtrl;
   late final TextEditingController _nameCtrl;
@@ -81,7 +84,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
 
   final ImagePicker _picker = ImagePicker();
 
-  final List<String> _specialties = const ['توتر وقلق', 'خوف', 'حزن', 'تفاؤل'];
+  final List<String> _specialties = const ['توتر وقلق', 'غضب', 'حزن', 'تفاؤل'];
   final List<String> _yearsList = const ['1', '2', '3', '4', '5+'];
 
   @override
@@ -126,6 +129,38 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
       MaterialPageRoute(builder: (_) => const LoginView()),
       (route) => false,
     );
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    final confirmed = await ConfirmationPopup.show(
+      context,
+      title: 'حذف الحساب',
+      message: 'هل أنت متأكد أنك تريد حذف الحساب؟ لا يمكن التراجع عن هذا.',
+      confirmText: 'حذف الحساب',
+      cancelText: 'إلغاء',
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+
+    setState(() => _deleteError = null);
+    setState(() => _isDeletingAccount = true);
+
+    try {
+      await AuthService.instance.deleteAccountOnBackend();
+      if(!mounted) return;
+      await AuthService.instance.signOut();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginView()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isDeletingAccount = false; 
+        _deleteError = e as String;
+      });
+    }
   }
 
   Future<void> _confirmAndLogout() async {
@@ -262,12 +297,14 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: BColors.white,
-        body: SafeArea(
-          child: SingleChildScrollView(
+        body: Stack(
+          children: [
+            SafeArea(
+              child: SingleChildScrollView(
             padding: EdgeInsets.only(
               bottom: widget.onTap != null
-                  ? DoctorBottomNav.barHeight + 24
-                  : 24,
+                  ? DoctorBottomNav.barHeight - 50
+                  : 3,
             ),
             child: Column(
               children: [
@@ -296,6 +333,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                           },
                           child: Row(
                             children: [
+                            const SizedBox(height: 40),
                               Transform(
                                 alignment: Alignment.center,
                                 transform: Matrix4.rotationY(3.141592653589793),
@@ -515,7 +553,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                             )
                           : _genderReadOnly(selected: _gender),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
 
                       if (_isEditing)
                         Center(
@@ -543,13 +581,59 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                           ),
                         ),
 
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 80),
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 180,
+                              height: 40,
+                              child: ElevatedButton(
+                                onPressed: _isDeletingAccount
+                                    ? null
+                                    : () => _handleDeleteAccount(),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFE4573D),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'حذف الحساب',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_deleteError != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _deleteError!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: BColors.validationError,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
+        ),
+          if (_isDeletingAccount) BouhLoadingOverlay(),
+        ],
         ),
         bottomNavigationBar: widget.onTap != null
             ? Material(
@@ -569,7 +653,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
   }
 
   static Widget _label(String text) => Padding(
-    padding: const EdgeInsets.only(top: 14, bottom: 6),
+    padding: const EdgeInsets.only(top: 10, bottom: 4),
     child: Align(
       alignment: Alignment.centerRight,
       child: Text(

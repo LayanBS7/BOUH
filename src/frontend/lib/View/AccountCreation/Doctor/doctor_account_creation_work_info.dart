@@ -1,19 +1,19 @@
+import 'dart:async';
+import 'dart:io' show SocketException;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/dto/doctorSignupData.dart';
 import 'package:bouh/dto/doctorDto.dart';
 import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/View/AccountCreation/verify_email_view.dart';
+import 'package:bouh/widgets/loading_overlay.dart';
 
-/// Step 2 of doctor account creation: work info. When [signupData] is provided
-/// (from step 1), "إنشاء حساب" builds [DoctorDto] and calls
-/// [AuthService.createDoctorAccount], then navigates to [VerifyEmailView].
 class DoctorAccountCreationStep2 extends StatefulWidget {
   const DoctorAccountCreationStep2({super.key, this.signupData});
 
-  /// Step-1 data (email, password, name, gender). Required when used in the
-  /// doctor registration flow; account creation runs on submit.
+  /// Step-1 data (email, password, name, gender, profileImage)
   final DoctorSignupData? signupData;
 
   @override
@@ -23,14 +23,73 @@ class DoctorAccountCreationStep2 extends StatefulWidget {
 
 class _DoctorAccountCreationStep2State
     extends State<DoctorAccountCreationStep2> {
-  final _qualificationsCtrl = TextEditingController();
+  static const int _minQualifications = 1;
+  static const int _maxQualifications = 5;
+
+  final _formKey = GlobalKey<FormState>();
+  final _classificationFieldKey = GlobalKey<FormFieldState<String>>();
+  final _ibanFieldKey = GlobalKey<FormFieldState<String>>();
+
+  final List<TextEditingController> _qualificationCtrls = [];
+  final List<FocusNode> _qualificationFocusNodes = [];
+  String? _qualificationsError;
+
   final _classificationCtrl = TextEditingController();
-  final _ibanCtrl = TextEditingController();
+  final _ibanSuffixCtrl = TextEditingController();
+
+  final _classificationFocusNode = FocusNode();
+  final _ibanFocusNode = FocusNode();
+
+  bool _qualificationsTouched = false;
+  bool _classificationTouched = false;
+  bool _ibanTouched = false;
 
   String? _specialty;
   String? _years;
   bool _isSubmitting = false;
   String? _submitError;
+
+  static final _arabicOnlyRegex = RegExp(
+    r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s]+$',
+  );
+
+  String? _validateQualificationsList() {
+    final nonEmpty = _qualificationCtrls
+        .map((c) => c.text.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (nonEmpty.isEmpty) {
+      return 'يرجى إدخال مؤهل واحد على الأقل';
+    }
+    for (final s in nonEmpty) {
+      if (!_arabicOnlyRegex.hasMatch(s)) {
+        return 'يرجى إدخال المؤهلات باللغة العربية فقط';
+      }
+    }
+    return null;
+  }
+
+  static String? _validateSpecNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'يرجى إدخال رقم التخصص';
+    }
+    final digits = value.trim().replaceAll(RegExp(r'\s'), '');
+    if (digits.length != 10 || !RegExp(r'^[0-9]{10}$').hasMatch(digits)) {
+      return 'رقم التخصص يجب أن يكون 10 أرقام ';
+    }
+    return null;
+  }
+
+  static String? _validateIbanSuffix(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'يرجى إدخال صيغة آيبان صحيحة';
+    }
+    final digits = value.trim().replaceAll(RegExp(r'\s'), '');
+    if (digits.length != 22 || !RegExp(r'^[0-9]{22}$').hasMatch(digits)) {
+      return 'يجب إدخال صيغة آيبان صحيحة';
+    }
+    return null;
+  }
 
   final List<String> _specialties = const [
     'توتر وقلق',
@@ -42,9 +101,9 @@ class _DoctorAccountCreationStep2State
   final List<String> _yearsList = const ['1', '2', '3', '4', '+5'];
 
   bool get _isFormComplete =>
-      _qualificationsCtrl.text.trim().isNotEmpty &&
+      _qualificationCtrls.any((c) => c.text.trim().isNotEmpty) &&
       _classificationCtrl.text.trim().isNotEmpty &&
-      _ibanCtrl.text.trim().isNotEmpty &&
+      _ibanSuffixCtrl.text.trim().length == 22 &&
       _specialty != null &&
       _years != null;
 
@@ -54,21 +113,90 @@ class _DoctorAccountCreationStep2State
   }
 
   @override
+  void initState() {
+    super.initState();
+    _addQualification();
+    _classificationFocusNode.addListener(_onClassificationFocusChange);
+    _ibanFocusNode.addListener(_onIbanFocusChange);
+  }
+
+  void _addQualification() {
+    if (_qualificationCtrls.length >= _maxQualifications) return;
+    final ctrl = TextEditingController();
+    final focusNode = FocusNode();
+    focusNode.addListener(() {
+      if (!focusNode.hasFocus) {
+        _qualificationsTouched = true;
+        _qualificationsError = _validateQualificationsList();
+        if (mounted) setState(() {});
+      }
+    });
+    _qualificationCtrls.add(ctrl);
+    _qualificationFocusNodes.add(focusNode);
+    if (mounted) setState(() {});
+  }
+
+  void _removeQualification(int index) {
+    if (_qualificationCtrls.length <= _minQualifications) return;
+    _qualificationCtrls[index].dispose();
+    _qualificationFocusNodes[index].dispose();
+    _qualificationCtrls.removeAt(index);
+    _qualificationFocusNodes.removeAt(index);
+    _qualificationsError = _validateQualificationsList();
+    if (mounted) setState(() {});
+  }
+
+  void _onClassificationFocusChange() {
+    if (!_classificationFocusNode.hasFocus) {
+      _classificationTouched = true;
+      _classificationFieldKey.currentState?.validate();
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _onIbanFocusChange() {
+    if (!_ibanFocusNode.hasFocus) {
+      _ibanTouched = true;
+      _ibanFieldKey.currentState?.validate();
+      if (mounted) setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
-    _qualificationsCtrl.dispose();
+    for (final c in _qualificationCtrls) c.dispose();
+    for (final f in _qualificationFocusNodes) f.dispose();
+    _classificationFocusNode.removeListener(_onClassificationFocusChange);
+    _ibanFocusNode.removeListener(_onIbanFocusChange);
+    _classificationFocusNode.dispose();
+    _ibanFocusNode.dispose();
     _classificationCtrl.dispose();
-    _ibanCtrl.dispose();
+    _ibanSuffixCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _submitCreateAccount() async {
     final signupData = widget.signupData;
-    if (signupData == null || !_isFormComplete || _isSubmitting) return;
+    print('[DoctorReg Step2] _submitCreateAccount: signupData=${signupData != null ? "present" : "null"}, profileImage=${signupData?.profileImage != null ? signupData!.profileImage!.path : "null"}');
+    if (signupData == null || _isSubmitting) return;
+    setState(() {
+      _qualificationsTouched = true;
+      _classificationTouched = true;
+      _ibanTouched = true;
+      _qualificationsError = _validateQualificationsList();
+    });
+    if (_qualificationsError != null) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() {
       _isSubmitting = true;
       _submitError = null;
     });
+
+    final qualificationsList = _qualificationCtrls
+        .map((c) => c.text.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
 
     final doctorDto = DoctorDto(
       doctorId: '',
@@ -76,18 +204,21 @@ class _DoctorAccountCreationStep2State
       email: signupData.email,
       gender: signupData.gender,
       areaOfKnowledge: _specialty!,
-      qualifications: _qualificationsCtrl.text.trim(),
+      qualifications: qualificationsList,
       yearsOfExperience: _parseYears(_years!),
-      scfhsNumber: _classificationCtrl.text.trim(),
-      iban: _ibanCtrl.text.trim(),
+      scfhsNumber: _classificationCtrl.text.trim().replaceAll(RegExp(r'\s'), ''),
+      iban: 'SA${_ibanSuffixCtrl.text.trim().replaceAll(RegExp(r'\s'), '')}',
       registrationStatus: 'PENDING',
     );
 
     try {
+      print('[DoctorReg Step2] _submitCreateAccount: calling AuthService.createDoctorAccount with profileImageFile=${signupData.profileImage != null ? signupData.profileImage!.path : "null"}');
       await AuthService.instance.createDoctorAccount(
         doctorDto: doctorDto,
         password: signupData.password,
+        profileImageFile: signupData.profileImage,
       );
+      print('[DoctorReg Step2] _submitCreateAccount: createDoctorAccount returned');
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const VerifyEmailView()),
@@ -95,10 +226,14 @@ class _DoctorAccountCreationStep2State
       );
     } catch (e) {
       if (mounted) {
-        final message =
-            e is FirebaseAuthException && e.code == 'email-already-in-use'
-            ? 'البريد الإلكتروني مستخدم بالفعل بحساب آخر.'
-            : 'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.';
+        final String message;
+        if (e is FirebaseAuthException && e.code == 'email-already-in-use') {
+          message = 'البريد الإلكتروني مستخدم بالفعل بحساب آخر.';
+        } else if (e is SocketException || e is TimeoutException) {
+          message = 'الخادم لا يستجيب أو لا يوجد اتصال. تحقق من الإنترنت وحاول مرة أخرى.';
+        } else {
+          message = 'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.';
+        }
         setState(() {
           _isSubmitting = false;
           _submitError = message;
@@ -139,6 +274,23 @@ class _DoctorAccountCreationStep2State
     );
   }
 
+  InputDecoration _inputDecorationWithCounter(
+      TextEditingController ctrl, int maxLength) {
+    return _inputDecoration().copyWith(
+      counterText: '',
+      counter: Align(
+        alignment: Alignment.centerRight,
+        child: Text(
+          '${ctrl.text.length}/$maxLength',
+          style: const TextStyle(
+            fontSize: 12,
+            color: BColors.darkGrey,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -153,8 +305,10 @@ class _DoctorAccountCreationStep2State
               SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(22, 30, 22, 30),
-                  child: Column(
-                    children: [
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
                       // ================= HEADER =================
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
@@ -189,31 +343,134 @@ class _DoctorAccountCreationStep2State
 
                       const SizedBox(height: 18),
 
-                      // ================= FIELDS =================
-                      _LabeledTextField(
-                        label: 'مؤهلات *',
-                        controller: _qualificationsCtrl,
-                        keyboardType: TextInputType.text,
-                        decoration: _inputDecoration(),
-                        onChanged: (_) => setState(() {}),
+                      // ================= FIELDS (مؤهلات: dynamic list 1–5) =================
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: const Text(
+                          'المؤهلات *',
+                          style: TextStyle(fontSize: 13, color: BColors.darkGrey),
+                        ),
                       ),
+                      const SizedBox(height: 8),
+                      ...List.generate(_qualificationCtrls.length, (i) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _qualificationCtrls[i],
+                                  focusNode: _qualificationFocusNodes[i],
+                                  keyboardType: TextInputType.text,
+                                  decoration: _inputDecorationWithCounter(
+                                      _qualificationCtrls[i], 70),
+                                  textAlign: TextAlign.right,
+                                  textDirection: TextDirection.rtl,
+                                  maxLength: 70,
+                                  inputFormatters: [
+                                    LengthLimitingTextInputFormatter(70),
+                                  ],
+                                  onChanged: (_) {
+                                    if (_qualificationsTouched) {
+                                      _qualificationsError =
+                                          _validateQualificationsList();
+                                    }
+                                    setState(() {});
+                                  },
+                                ),
+                              ),
+                              if (_qualificationCtrls.length > _minQualifications) ...[
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  onPressed: () => _removeQualification(i),
+                                  icon: const Icon(
+                                    Icons.remove_circle_outline,
+                                    color: BColors.validationError,
+                                    size: 20,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 40,
+                                    minHeight: 46,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      }),
+                      if (_qualificationCtrls.length < _maxQualifications)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: _addQualification,
+                              icon: const Icon(Icons.add_circle_outline,
+                                  size: 20, color: BColors.primary),
+                              label: const Text(
+                                'إضافة مؤهل',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: BColors.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_qualificationsError != null) ...[
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            _qualificationsError!,
+                            style: const TextStyle(
+                              color: BColors.validationError,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 14),
 
-                      _LabeledTextField(
+                      _LabeledFormField(
+                        fieldKey: _classificationFieldKey,
                         label: 'رقم التخصص *',
                         controller: _classificationCtrl,
-                        keyboardType: TextInputType.text,
+                        keyboardType: TextInputType.number,
                         decoration: _inputDecoration(),
-                        onChanged: (_) => setState(() {}),
+                        focusNode: _classificationFocusNode,
+                        onChanged: (_) {
+                          if (_classificationTouched) {
+                            _classificationFieldKey.currentState?.validate();
+                          }
+                          setState(() {});
+                        },
+                        validator: (v) => _classificationTouched ? _validateSpecNumber(v) : null,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
                       ),
                       const SizedBox(height: 14),
 
-                      _LabeledTextField(
-                        label: 'رقم الايبان *',
-                        controller: _ibanCtrl,
-                        keyboardType: TextInputType.text,
-                        decoration: _inputDecoration(),
-                        onChanged: (_) => setState(() {}),
+                      _IbanField(
+                        fieldKey: _ibanFieldKey,
+                        controller: _ibanSuffixCtrl,
+                        decoration: _inputDecorationWithCounter(
+                            _ibanSuffixCtrl, 22),
+                        focusNode: _ibanFocusNode,
+                        onChanged: (_) {
+                          if (_ibanTouched) {
+                            _ibanFieldKey.currentState?.validate();
+                          }
+                          setState(() {});
+                        },
+                        validator: (v) => _ibanTouched ? _validateIbanSuffix(v) : null,
                       ),
 
                       const SizedBox(height: 14),
@@ -289,6 +546,7 @@ class _DoctorAccountCreationStep2State
                     ],
                   ),
                 ),
+                ),
               ),
 
               // ================== BACK ARROW (ON TOP) ==================
@@ -304,6 +562,7 @@ class _DoctorAccountCreationStep2State
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
+              if (_isSubmitting) BouhLoadingOverlay(),
             ],
           ),
         ),
@@ -401,20 +660,30 @@ class _MiniDots extends StatelessWidget {
   }
 }
 
-// ================= Labeled TextField =================
-class _LabeledTextField extends StatelessWidget {
+// ================= Labeled Form Field (with validator) =================
+class _LabeledFormField extends StatelessWidget {
+  final Key? fieldKey;
   final String label;
   final TextEditingController controller;
   final TextInputType keyboardType;
   final InputDecoration decoration;
+  final FocusNode? focusNode;
   final ValueChanged<String> onChanged;
+  final String? Function(String?)? validator;
+  final List<TextInputFormatter>? inputFormatters;
+  final int maxLines;
 
-  const _LabeledTextField({
+  const _LabeledFormField({
     required this.label,
     required this.controller,
     required this.keyboardType,
     required this.decoration,
     required this.onChanged,
+    this.fieldKey,
+    this.focusNode,
+    this.validator,
+    this.inputFormatters,
+    this.maxLines = 1,
   });
 
   @override
@@ -427,13 +696,93 @@ class _LabeledTextField extends StatelessWidget {
           style: const TextStyle(fontSize: 13, color: BColors.darkGrey),
         ),
         const SizedBox(height: 8),
-        TextField(
+        TextFormField(
+          key: fieldKey,
           controller: controller,
+          focusNode: focusNode,
           keyboardType: keyboardType,
           decoration: decoration,
           textAlign: TextAlign.right,
           textDirection: TextDirection.rtl,
           onChanged: onChanged,
+          validator: validator,
+          inputFormatters: inputFormatters,
+          maxLines: maxLines,
+        ),
+      ],
+    );
+  }
+}
+
+// ================= IBAN field: "SA" fixed prefix + 22 digits =================
+class _IbanField extends StatelessWidget {
+  final Key? fieldKey;
+  final TextEditingController controller;
+  final InputDecoration decoration;
+  final FocusNode? focusNode;
+  final ValueChanged<String> onChanged;
+  final String? Function(String?)? validator;
+
+  const _IbanField({
+    required this.controller,
+    required this.decoration,
+    required this.onChanged,
+    required this.validator,
+    this.fieldKey,
+    this.focusNode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'رقم الايبان *',
+          style: TextStyle(fontSize: 13, color: BColors.darkGrey),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          textDirection: TextDirection.rtl,
+          children: [
+            Expanded(
+              child: TextFormField(
+                key: fieldKey,
+                controller: controller,
+                focusNode: focusNode,
+                keyboardType: TextInputType.number,
+                decoration: decoration,
+                textAlign: TextAlign.right,
+                onChanged: onChanged,
+                validator: validator,
+                maxLength: 22,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(22),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 46,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: BColors.grey),
+                color: BColors.grey.withOpacity(0.2),
+              ),
+              child: const Text(
+                'SA',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: BColors.textDarkestBlue,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

@@ -2,7 +2,7 @@ class ApiConfig {
   static const bool isProd = false;
 
   static const String localBaseUrl = "http://10.0.2.2:8080";
-  static const String physicalBaseUrl = "http://192.168.100.119:8080";//wehen Using real device
+  static const String physicalBaseUrl = "http://172.20.10.2:8080";//wehen Using real device
   static const String prodBaseUrl = "https://YOUR-CLOUDRUN-URL.a.run.app";
 
   static String get baseUrl => isProd ? prodBaseUrl : localBaseUrl;

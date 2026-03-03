@@ -1,12 +1,11 @@
 package com.bouh.backend.service.accounts;
-import com.bouh.backend.model.Dto.authDto;
-import com.bouh.backend.model.Dto.caregiverDto;
-import com.bouh.backend.model.Dto.doctorDto;
+
+import com.bouh.backend.model.Dto.*;
+import com.bouh.backend.model.Dto.accountManagment.accountResponseDto;
+import com.bouh.backend.model.Dto.accountManagment.authDto;
 import com.bouh.backend.model.repository.caregiverRepo;
 import com.bouh.backend.model.repository.doctorRepo;
 import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
 
 @Service
 public class accountsService {
@@ -20,71 +19,53 @@ public class accountsService {
     }
 
     public void createCaregiverAccount(String uid, caregiverDto Dto) {
-        //Backend-controlled defaults
-        Dto.setCaregiverId(uid);
-
-        if (Dto.getName() == null) {
-            Dto.setName("");
-        }
-
-        if (Dto.getFcmToken() == null) {
-            Dto.setFcmToken(null);
-        }
-
-        if (Dto.getChildren() == null) {
-            Dto.setChildren(new ArrayList<>());
-        }
-        try {
-            caregiverRepository.createCaregiver(uid, Dto);
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to create caregiver account for uid=" + uid, e
-            );
-        }
+        caregiverRepository.createCaregiver(uid, Dto);
     }
 
     public void createDoctorAccount(String uid, doctorDto Dto) {
-
-        Dto.setRegistrationStatus("PENDING");
-        Dto.setAverageRating(0.0);
-        Dto.setFcmToken(null);
-        Dto.setProfilePhotoURL(null);
-        Dto.setSchedule(null);
-        Dto.setScfhsnumber(Dto.getScfhsnumber());
-        Dto.setIban(Dto.getIban());
-
-        try {
-            doctorRepository.createDoctor(uid, Dto);
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to create doctor account for uid=" + uid, e
-            );
-        }
+        doctorRepository.createDoctor(uid, Dto);
     }
 
     public authDto resolveAuthState(String uid) {
-
         doctorDto doctor = doctorRepository.findByUid(uid);
-
-        if (doctor!= null) {
+        if (doctor != null) {
             return new authDto(
                     uid,
                     "doctor",
-                    doctor.getRegistrationStatus()
-            );
+                    doctor.getRegistrationStatus());
         }
         if (caregiverRepository.existsByUid(uid)) {
             return new authDto(
                     uid,
                     "caregiver",
-                    null
-            );
+                    null);
         }
-        //user with no profile (rare case)
+        // user with no profile
         return new authDto(
                 uid,
                 null,
-                null
-        );
+                null);
     }
+
+    public accountResponseDto deleteUsersAccount(String uid) {
+
+        String role = resolveAuthState(uid).getRole();
+        if (role.equals("caregiver")) {
+            caregiverRepository.deleteCaregiver(uid);
+            return new accountResponseDto(true, "ACCOUNT_DELETED", "تم حذف الحساب");
+        } else {
+            String result = doctorRepository.deleteDoctor(uid);
+            switch (result) {
+                case "deleted":
+                    return new accountResponseDto(true, "ACCOUNT_DELETED", "تم حذف الحساب");
+                case "upcoming-appointment-found":
+                    return new accountResponseDto(false, "HAS_UPCOMING_APPOINTMENTS",
+                            "لا يمكن حذف الحساب لوجود مواعيد قادمة");
+                default:
+                    return new accountResponseDto(false, "UNKNOWN_ERROR",
+                            "حدث خطأ غير متوقع");
+            }
+        }
+    }
+
 }

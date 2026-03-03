@@ -1,11 +1,14 @@
 package com.bouh.backend.controller;
+
 import com.bouh.backend.model.Dto.*;
+import com.bouh.backend.model.Dto.accountManagment.accountResponseDto;
 import com.bouh.backend.service.accounts.accountsService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -13,55 +16,37 @@ import org.springframework.security.core.Authentication;
 public class accountController {
 
     private final accountsService accountService;
+
     public accountController(accountsService accountService) {
         this.accountService = accountService;
     }
 
     @PostMapping("/register/caregivers")
-    public ResponseEntity<Void> createCaregiver(
-    @RequestBody caregiverDto dto,
-            Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> createCaregiver(
+            @RequestBody caregiverDto dto,
+            @AuthenticationPrincipal String firebaseDocUID) {
 
-        log.info("createCaregiver called for uid={}", authentication.getName());
-        //who is making this request
-        String uid = authentication.getName();
-
-        accountService.createCaregiverAccount(uid, dto);
+        accountService.createCaregiverAccount(firebaseDocUID, dto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/register/doctors")
-    public ResponseEntity<Void> createDoctor(
+    public ResponseEntity<Map<String, Object>> createDoctor(
             @RequestBody doctorDto dto,
-            Authentication authentication) {
-        log.info("createDoctor called for uid={}", authentication.getName());
+            @AuthenticationPrincipal String firebaseDocUID) {
 
-        //who is making this request
-        String uid = authentication.getName();
-
-        accountService.createDoctorAccount(uid, dto);
+        accountService.createDoctorAccount(firebaseDocUID, dto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-
     @GetMapping("/me")
-    public ResponseEntity<?> me(Authentication authentication) {
-        if (authentication == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        try {
-            //resolving users roles
-            String uid = authentication.getName();
-            return ResponseEntity.ok(
-                    accountService.resolveAuthState(uid)
-            );
-        } catch (Exception e) {
-            log.error("Failed to resolve role", e);
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("INTERNAL_ERROR");
-        }
+    public ResponseEntity<?> me(@AuthenticationPrincipal String firebaseDocUID) {
+        return ResponseEntity.ok(accountService.resolveAuthState(firebaseDocUID));
     }
 
-
+    @DeleteMapping("/delete")
+    public ResponseEntity<accountResponseDto> deleteUser(@AuthenticationPrincipal String firebaseDocUID) {
+        accountResponseDto response = accountService.deleteUsersAccount(firebaseDocUID);
+        return ResponseEntity.status(response.isSuccess() ? 200 : 409).body(response);
+    }
 }

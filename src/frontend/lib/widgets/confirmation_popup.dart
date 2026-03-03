@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 
-/// Reusable confirmation popup: shows a [message] and optional [title].
-/// User can confirm or cancel. On confirm, [onConfirm] is called (and the dialog closes).
-/// Use [confirmText] / [cancelText] to customize button labels (defaults: تأكيد / إلغاء).
-/// Set [isDestructive] to true to style the confirm button as danger (e.g. for delete).
+
 class ConfirmationPopup extends StatelessWidget {
   const ConfirmationPopup({
     super.key,
@@ -15,6 +12,7 @@ class ConfirmationPopup extends StatelessWidget {
     required this.onConfirm,
     this.onCancel,
     this.isDestructive = false,
+    this.singleButton = false,
   });
 
   final String? title;
@@ -24,9 +22,9 @@ class ConfirmationPopup extends StatelessWidget {
   final VoidCallback onConfirm;
   final VoidCallback? onCancel;
   final bool isDestructive;
+  final bool singleButton;
 
-  /// Shows the confirmation dialog. Returns a [Future] that completes with
-  /// `true` if the user confirmed, `false` if cancelled.
+  //Shows the confirmation dialog. Returns a [Future] that completes with
   static Future<bool> show(
     BuildContext context, {
     String? title,
@@ -34,6 +32,7 @@ class ConfirmationPopup extends StatelessWidget {
     String confirmText = 'تأكيد',
     String cancelText = 'إلغاء',
     bool isDestructive = false,
+    bool singleButton = false,
   }) async {
     final result = await showDialog<bool>(
       context: context,
@@ -44,8 +43,7 @@ class ConfirmationPopup extends StatelessWidget {
         confirmText: confirmText,
         cancelText: cancelText,
         isDestructive: isDestructive,
-        // The dialog itself is responsible for popping with true/false.
-        // Avoid popping twice (which could pop the underlying route).
+        singleButton: singleButton,
         onConfirm: () {},
       ),
     );
@@ -54,51 +52,72 @@ class ConfirmationPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: AlertDialog(
-        backgroundColor: BColors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 340,
+            maxHeight: screenHeight * 0.5,
+          ),
+          child: AlertDialog(
+            backgroundColor: BColors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+        contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 10, 24, 16),
         title: title != null
-            ? Text(
-                title!,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: BColors.textDarkestBlue,
+            ? Center(
+                child: Text(
+                  title!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: BColors.textDarkestBlue,
+                  ),
                 ),
               )
             : null,
-        content: Text(
-          message,
-          style: const TextStyle(
-            fontSize: 15,
-            color: BColors.darkGrey,
-            height: 1.4,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              onCancel?.call();
-              Navigator.of(context).pop(false);
-            },
+        content: SingleChildScrollView(
+          child: Center(
             child: Text(
-              cancelText,
+              message,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w600,
                 color: BColors.darkGrey,
+                height: 1.4,
               ),
             ),
           ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          if (!singleButton)
+            TextButton(
+              onPressed: () {
+                onCancel?.call();
+                Navigator.of(context).pop(false);
+              },
+              child: Text(
+                cancelText,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: BColors.darkGrey,
+                ),
+              ),
+            ),
           ElevatedButton(
             onPressed: () {
               onConfirm();
               Navigator.of(context).pop(true);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: isDestructive ? BColors.validationError : BColors.primary,
+              backgroundColor: isDestructive ? BColors.destructiveError : BColors.primary,
               foregroundColor: BColors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -107,6 +126,8 @@ class ConfirmationPopup extends StatelessWidget {
             child: Text(confirmText, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           ),
         ],
+          ),
+        ),
       ),
     );
   }

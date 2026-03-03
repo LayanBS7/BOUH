@@ -56,9 +56,55 @@ class _EmailResetPopupState extends State<EmailResetPopup> {
   String? _errorMessage;
 
   static String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) return 'يرجى إدخال البريد الإلكتروني';
-    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-    if (!emailRegex.hasMatch(value.trim())) return 'يرجى إدخال بريد إلكتروني صحيح';
+    if (value == null || value.trim().isEmpty) {
+      return 'يرجى إدخال البريد الإلكتروني';
+    }
+    final trimmed = value.trim();
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    if (!emailRegex.hasMatch(trimmed)) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+
+    const allowedDomains = <String>{
+      'gmail.com',
+      'outlook.com',
+      'hotmail.com',
+      'yahoo.com',
+      'icloud.com',
+      'live.com',
+    };
+
+    final parts = trimmed.split('@');
+    if (parts.length != 2) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+    final domain = parts.last.toLowerCase();
+    final domainParts = domain.split('.');
+    if (domainParts.length < 2) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+
+    // Validate top-level domain (e.g. reject gmail.vrgt, gmail.ff).
+    const allowedTlds = <String>{
+      'com',
+      'net',
+      'org',
+      'edu',
+      'gov',
+      'sa',
+    };
+    final tld = domainParts.last;
+    final tldRegex = RegExp(r'^[a-zA-Z]{2,}$');
+    if (!tldRegex.hasMatch(tld) || !allowedTlds.contains(tld)) {
+      return 'يرجى إدخال بريد إلكتروني صحيح';
+    }
+
+    if (!allowedDomains.contains(domain)) {
+      return 'يرجى استخدام بريد من مزوّد معتمد (مثل Gmail / Outlook)';
+    }
+
     return null;
   }
 
@@ -97,6 +143,7 @@ class _EmailResetPopupState extends State<EmailResetPopup> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
         backgroundColor: BColors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
@@ -107,62 +154,68 @@ class _EmailResetPopupState extends State<EmailResetPopup> {
             color: BColors.textDarkestBlue,
           ),
         ),
-        content: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                textAlign: TextAlign.right,
-                decoration: InputDecoration(
-                  hintText: widget.hint,
-                  prefixIcon: const Icon(
-                    Icons.email_outlined,
-                    color: BColors.primary,
-                  ),
-                  filled: true,
-                  fillColor: BColors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: BColors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: BColors.primary.withOpacity(0.6)),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: BColors.validationError),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: BColors.validationError, width: 1.5),
-                  ),
-                  errorStyle: const TextStyle(
-                    color: BColors.validationError,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                validator: _validateEmail,
-              ),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: BColors.validationError,
-                    height: 1.3,
-                  ),
+        content: SizedBox(
+          width: 360,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
                   textAlign: TextAlign.right,
+                  decoration: InputDecoration(
+                    hintText: widget.hint,
+                    prefixIcon: const Icon(
+                      Icons.email_outlined,
+                      color: BColors.primary,
+                    ),
+                    filled: true,
+                    fillColor: BColors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: BColors.grey),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: BColors.primary.withOpacity(0.6)),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: BColors.validationError),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: BColors.validationError, width: 1.5),
+                    ),
+                    errorStyle: const TextStyle(
+                      color: BColors.validationError,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  errorMaxLines: 2,
+                  ),
+                  validator: _validateEmail,
                 ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: BColors.validationError,
+                      height: 1.3,
+                    ),
+                    textAlign: TextAlign.right,
+                    softWrap: true,
+                    maxLines: null,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
         actions: [

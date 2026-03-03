@@ -5,12 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="65a7c67f-cd25-4c93-b850-bdf8225a9279" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/../backend/src/main/java/com/bouh/backend/controller/accountController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/src/main/java/com/bouh/backend/controller/accountController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/src/main/java/com/bouh/backend/model/repository/caregiverRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/src/main/java/com/bouh/backend/model/repository/caregiverRepo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/src/main/java/com/bouh/backend/security/FirebaseAuthFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/src/main/java/com/bouh/backend/security/FirebaseAuthFilter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/src/main/java/com/bouh/backend/service/accountCreationService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/src/main/java/com/bouh/backend/service/accountService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/src/main/java/com/bouh/backend/service/accounts/accountsService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/src/main/java/com/bouh/backend/service/serviceInterface/caregiveAuth.java" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -88,6 +82,7 @@
       <workItem from="1771330646779" duration="1652000" />
       <workItem from="1772106142594" duration="1072000" />
       <workItem from="1772148314911" duration="27000" />
+      <workItem from="1772226541880" duration="865000" />
     </task>
     <servers />
   </component>

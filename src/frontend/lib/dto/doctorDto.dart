@@ -7,11 +7,11 @@ class DoctorDto {
   final String gender;
   final double? averageRating;
   final String areaOfKnowledge;
-  final String qualifications;
+  final List<String> qualifications;
   final int yearsOfExperience;
   final String scfhsNumber;
   final String iban;
-  final String? profilePhotoURL;
+  String? profilePhotoURL;
   final String? fcmToken;
   final String registrationStatus;
   final List<ScheduleDto>? schedule;
