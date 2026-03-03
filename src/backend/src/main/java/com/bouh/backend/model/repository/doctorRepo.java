@@ -79,6 +79,33 @@ public class doctorRepo {
         }
     }
 
+    
+    /**
+     * Read doctor document from doctors/{doctorId}.
+     * Returns name, areaOfKnowledge, profilePhotoURL.
+     * --------REMOVE ON DONE------------
+     */
+    public doctorDto findById(String doctorId)
+            throws ExecutionException, InterruptedException {
+
+        DocumentReference ref =
+                firestore.collection("doctors").document(doctorId);
+
+        DocumentSnapshot doc = ref.get().get();
+
+        if (doc == null || !doc.exists()) {
+            return null;
+        }
+
+        doctorDto dto = new doctorDto();
+        dto.setDoctorId(doctorId);
+        dto.setName(getString(doc, "name"));
+        dto.setAreaOfKnowledge(getString(doc, "areaOfKnowledge"));
+        dto.setProfilePhotoURL(getString(doc, "profilePhotoURL"));
+
+        return dto;
+    }
+
     private static String getString(DocumentSnapshot doc, String field) {
         Object value = doc.get(field);
         return value == null ? null : value.toString();
@@ -148,7 +175,7 @@ public class doctorRepo {
         // fetch the frist upcoming appointemnt
         ApiFuture<QuerySnapshot> upcomingFuture = firestore.collection("appointments")
                 .whereEqualTo("doctorId", uid)
-                .whereGreaterThan("date", now)
+                .whereGreaterThan("startDateTime", now)
                 .limit(1)
                 .get();
 
