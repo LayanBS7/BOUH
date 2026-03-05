@@ -4,7 +4,7 @@ class CaregiverDto {
   final String caregiverId;
   final String name;
   final String email;
-  final String? fcmToken;
+  String? fcmToken;
   final List<ChildDto> children;
 
   CaregiverDto({

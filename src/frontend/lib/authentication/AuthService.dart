@@ -1,15 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../dto/caregiverDto.dart';
 import '../dto/doctorDto.dart';
 import 'AuthSession.dart';
-import 'dart:io';
 
 
-//Auth service: login / logout , reset password , create accounts, register profiles on backend
+//Auth service: login / logout , reset password , create accounts, register profiles on backend, FCM helpers
 class AuthService {
   AuthService._();
 
@@ -25,6 +26,12 @@ class AuthService {
 
   Future<String?> get role => _session.role;
 
+  //Get the current device FCM token (used when first creating an account).
+  Future<String?> getFcmToken() async {
+    final messaging = FirebaseMessaging.instance;
+
+    return messaging.getToken();
+  }
 
   //Login using Firebase, then resolve role from backend
   Future<String?> login({
@@ -52,7 +59,7 @@ class AuthService {
     return role;
   }
 
-  /// Logout
+  //Logout
   Future<void> signOut() async {
     final uid = _session.userId;
     await _auth.signOut();
@@ -104,6 +111,12 @@ class AuthService {
       );
     }
 
+    //Get the current device FCM token and set it in the doctorDto.
+    final fcmToken = await getFcmToken();
+    if (fcmToken != null && fcmToken.isNotEmpty) {
+      doctorDto.fcmToken = fcmToken;
+    }
+
     _pendingDoctorProfile = doctorDto;
     _pendingDoctorProfileImage = profileImageFile;
     await _setSessionFromUser(user);
@@ -128,6 +141,12 @@ class AuthService {
       );
     }
 
+    //Get the current device FCM token and set it in the caregiverDto.
+    final fcmToken = await getFcmToken();
+    if (fcmToken != null && fcmToken.isNotEmpty) {
+      caregiverDto.fcmToken = fcmToken;
+    }
+
     _pendingCaregiverProfile = caregiverDto;
     await _setSessionFromUser(user);
     return user;
@@ -135,10 +154,8 @@ class AuthService {
 
   //Pending profile registration (Backend) doctor, no profile on backend yet.
   Future<bool> createPendingDoctorProfileIfAny() async {
-    print('[AuthService] createPendingDoctorProfileIfAny: started');
     final dto = _pendingDoctorProfile;
     if (dto == null) {
-      print('[AuthService] createPendingDoctorProfileIfAny: no pending doctor profile, skipping');
       return false;
     }
 
@@ -149,11 +166,8 @@ class AuthService {
       print('[AuthService] createPendingDoctorProfileIfAny: upload result imageUrl=${imageUrl.isEmpty ? "(empty)" : imageUrl}');
       if (imageUrl.isNotEmpty) {
         dto.profilePhotoURL = imageUrl;
-        print('[AuthService] createPendingDoctorProfileIfAny: set dto.profilePhotoURL');
       }
       _pendingDoctorProfileImage = null;
-    } else {
-      print('[AuthService] createPendingDoctorProfileIfAny: no pending profile image');
     }
 
     await _registerDoctorOnBackend(dto);
@@ -216,22 +230,18 @@ class AuthService {
 
 
   //Uploads doctor profile image to Firebase Storage.
-  //with Path: doctorProfileImages/{userId}_{timestamp}.jpg
   Future<String> _uploadDoctorProfileImageToFirebaseStorage(File file) async {
     print('[AuthService] _uploadDoctorProfileImageToFirebaseStorage: file=${file.path}');
     final user = _auth.currentUser;
     if (user == null) {
-      print('[AuthService] _uploadDoctorProfileImageToFirebaseStorage: no current user, returning empty');
       return '';
     }
     final ref = FirebaseStorage.instance
         .ref()
         .child('doctorProfileImages')
         .child('${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-    print('[AuthService] _uploadDoctorProfileImageToFirebaseStorage: putting file');
     await ref.putFile(file);
     final url = await ref.fullPath;
-    print('[AuthService] _uploadDoctorProfileImageToFirebaseStorage: got download URL');
     return url;
   }
 
@@ -312,7 +322,39 @@ class AuthService {
       );
     }
   }
- 
+
+  //Backend: PUT /api/accounts/fcmToken to update FCM token on backend.
+  Future<void> updateFcmTokenOnBackend(String fcmToken) async {
+    final token = _session.idToken;
+    if (token == null || token.isEmpty) {
+      return;
+    }
+
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}/api/accounts/fcmToken',
+    );
+
+    final response = await http.put(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'fcmToken': fcmToken}),
+    );
+
+    if (response.statusCode == 401) {
+      await _refreshSession();
+      return updateFcmTokenOnBackend(fcmToken);
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Update FCM token failed: ${response.statusCode} ${response.body}',
+      );
+    }
+  }
+
   //Backend: DELETE /api/accounts/delete to delete account on backend.
   Future<String?> deleteAccountOnBackend() async {
     print('[AuthService] deleteAccountOnBackend: started for user ${_auth.currentUser?.uid} with token ${_session.idToken}');

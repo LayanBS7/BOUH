@@ -12,7 +12,7 @@ class DoctorDto {
   final String scfhsNumber;
   final String iban;
   String? profilePhotoURL;
-  final String? fcmToken;
+  String? fcmToken;
   final String registrationStatus;
   final List<ScheduleDto>? schedule;
 
