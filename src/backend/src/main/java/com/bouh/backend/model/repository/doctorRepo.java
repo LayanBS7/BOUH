@@ -48,7 +48,7 @@ public class doctorRepo {
             doctorData.put("averageRating", 0.0);
             doctorData.put("profilePhotoURL", dto.getProfilePhotoURL());
             doctorData.put("registrationStatus", "PENDING");
-            doctorData.put("fcmToken", null);
+            doctorData.put("fcmToken", dto.getFcmToken());
 
             batch.set(doctorRef, doctorData);
             batch.commit().get();
@@ -67,7 +67,8 @@ public class doctorRepo {
                     .get()
                     .get();
 
-            if (!snapshot.exists()) return null;
+            if (!snapshot.exists())
+                return null;
 
             // Manually map fields to avoid toObject() silently missing fields
             doctorDto dto = new doctorDto();
@@ -83,7 +84,8 @@ public class doctorRepo {
             dto.setIban(snapshot.getString("iban"));
             dto.setAverageRating(snapshot.getDouble("averageRating"));
             dto.setYearsOfExperience(snapshot.getLong("yearsOfExperience") != null
-                    ? snapshot.getLong("yearsOfExperience").intValue() : null);
+                    ? snapshot.getLong("yearsOfExperience").intValue()
+                    : null);
             return dto;
 
         } catch (Exception e) {
@@ -94,14 +96,11 @@ public class doctorRepo {
         }
     }
 
-    
-   
-    
     /**
      * Returns list of approved doctors for caregiver browsing screen.
      */
-    public java.util.List<com.bouh.backend.model.Dto.DoctorSummaryDto>
-    getDoctorsForCaregiverList() throws ExecutionException, InterruptedException {
+    public java.util.List<com.bouh.backend.model.Dto.DoctorSummaryDto> getDoctorsForCaregiverList()
+            throws ExecutionException, InterruptedException {
 
         var result = new java.util.ArrayList<com.bouh.backend.model.Dto.DoctorSummaryDto>();
 
@@ -109,7 +108,9 @@ public class doctorRepo {
 
         for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
 
-            // IMPORTANT: show only approved doctors (change the status in phase 3 when we have the admin logic) For now, we can set the registrationStatus field to "approved" manually in Firestore for testing.
+            // IMPORTANT: show only approved doctors (change the status in phase 3 when we
+            // have the admin logic) For now, we can set the registrationStatus field to
+            // "approved" manually in Firestore for testing.
             String status = getString(doc, "registrationStatus");
             if (status == null || !status.equalsIgnoreCase("approved")) {
                 continue;
@@ -124,11 +125,11 @@ public class doctorRepo {
             System.out.println("🔥 rating raw = " + raw);
             System.out.println("🔥 rating type = " + (raw == null ? "null" : raw.getClass()));
 
-          double avg = getDouble(doc, "rating");
-if (avg == 0.0) { // لو ما لقا rating أو كان null
-    avg = getDouble(doc, "averageRating");
-}
-dto.setAverageRating(avg);
+            double avg = getDouble(doc, "rating");
+            if (avg == 0.0) { // لو ما لقا rating أو كان null
+                avg = getDouble(doc, "averageRating");
+            }
+            dto.setAverageRating(avg);
 
             dto.setProfilePhotoURL(getString(doc, "profilePhotoURL"));
 
@@ -136,9 +137,9 @@ dto.setAverageRating(avg);
                 System.out.println("===== DOC_3 DEBUG =====");
                 System.out.println("doc_3 data = " + doc.getData());
                 System.out.println("rating = " + doc.get("rating") + " type=" +
-                        (doc.get("rating")==null ? "null" : doc.get("rating").getClass()));
+                        (doc.get("rating") == null ? "null" : doc.get("rating").getClass()));
                 System.out.println("averageRating = " + doc.get("averageRating") + " type=" +
-                        (doc.get("averageRating")==null ? "null" : doc.get("averageRating").getClass()));
+                        (doc.get("averageRating") == null ? "null" : doc.get("averageRating").getClass()));
                 System.out.println("=======================");
             }
 
@@ -147,90 +148,92 @@ dto.setAverageRating(avg);
 
         return result;
     }
-/**
- * Returns full doctor details for Doctor Details screen.
- */
-public com.bouh.backend.model.Dto.DoctorDetailsDto
-getDoctorDetails(String doctorId)
-        throws ExecutionException, InterruptedException {
 
-    DocumentReference ref = firestore.collection("doctors").document(doctorId);
-    DocumentSnapshot doc = ref.get().get();
+    /**
+     * Returns full doctor details for Doctor Details screen.
+     */
+    public com.bouh.backend.model.Dto.DoctorDetailsDto getDoctorDetails(String doctorId)
+            throws ExecutionException, InterruptedException {
 
-    if (doc == null || !doc.exists()) {
-        return null;
-    }
+        DocumentReference ref = firestore.collection("doctors").document(doctorId);
+        DocumentSnapshot doc = ref.get().get();
 
-    var dto = new com.bouh.backend.model.Dto.DoctorDetailsDto();
-    dto.setDoctorID(doctorId);
-    dto.setName(getString(doc, "name"));
-    dto.setAreaOfKnowledge(getString(doc, "areaOfKnowledge"));
-
-    double avg = getDouble(doc, "rating");
-if (avg == 0.0) { // لو ما لقا rating أو كان null
-    avg = getDouble(doc, "averageRating");
-}
-dto.setAverageRating(avg);
-
-    Long years = doc.getLong("yearsOfExperience");
-    dto.setYearsOfExperience(years == null ? 0 : years.intValue());
-
-    dto.setQualifications(getString(doc, "qualifications"));
-    dto.setProfilePhotoURL(getString(doc, "profilePhotoURL"));
-
-    return dto;
-}
-public DoctorScheduleDto getDoctorScheduleByDate(String doctorId, String date)
-        throws ExecutionException, InterruptedException {
-
-    var scheduleRef = firestore.collection("doctors")
-            .document(doctorId)
-            .collection("schedule")
-            .document(date);
-
-    var scheduleDoc = scheduleRef.get().get();
-    if (scheduleDoc == null || !scheduleDoc.exists()) {
-        return null;
-    }
-
-    // read timeSlots subcollection
-    var slotsSnap = scheduleRef.collection("TimeSlots").get().get();
-
-    var slots = new java.util.ArrayList<TimeSlotDto>();
-    for (var slotDoc : slotsSnap.getDocuments()) {
-        
-        TimeSlotDto slot = slotDoc.toObject(TimeSlotDto.class);
-
-   
-        if (slot != null) {
-            slots.add(slot);
+        if (doc == null || !doc.exists()) {
+            return null;
         }
+
+        var dto = new com.bouh.backend.model.Dto.DoctorDetailsDto();
+        dto.setDoctorID(doctorId);
+        dto.setName(getString(doc, "name"));
+        dto.setAreaOfKnowledge(getString(doc, "areaOfKnowledge"));
+
+        double avg = getDouble(doc, "rating");
+        if (avg == 0.0) { // لو ما لقا rating أو كان null
+            avg = getDouble(doc, "averageRating");
+        }
+        dto.setAverageRating(avg);
+
+        Long years = doc.getLong("yearsOfExperience");
+        dto.setYearsOfExperience(years == null ? 0 : years.intValue());
+
+        dto.setQualifications(getString(doc, "qualifications"));
+        dto.setProfilePhotoURL(getString(doc, "profilePhotoURL"));
+
+        return dto;
     }
 
-    var dto = new DoctorScheduleDto();
-    dto.setDate(date);
-    dto.setTimeSlots(slots);
-    return dto;
-}
+    public DoctorScheduleDto getDoctorScheduleByDate(String doctorId, String date)
+            throws ExecutionException, InterruptedException {
+
+        var scheduleRef = firestore.collection("doctors")
+                .document(doctorId)
+                .collection("schedule")
+                .document(date);
+
+        var scheduleDoc = scheduleRef.get().get();
+        if (scheduleDoc == null || !scheduleDoc.exists()) {
+            return null;
+        }
+
+        // read timeSlots subcollection
+        var slotsSnap = scheduleRef.collection("TimeSlots").get().get();
+
+        var slots = new java.util.ArrayList<TimeSlotDto>();
+        for (var slotDoc : slotsSnap.getDocuments()) {
+
+            TimeSlotDto slot = slotDoc.toObject(TimeSlotDto.class);
+
+            if (slot != null) {
+                slots.add(slot);
+            }
+        }
+
+        var dto = new DoctorScheduleDto();
+        dto.setDate(date);
+        dto.setTimeSlots(slots);
+        return dto;
+    }
+
     private static String getString(DocumentSnapshot doc, String field) {
         Object value = doc.get(field);
         return value == null ? null : value.toString();
     }
-    private static double getDouble(DocumentSnapshot doc, String field) { 
-    Object v = doc.get(field);
-    if (v == null) return 0.0;
 
-    if (v instanceof Number) {
-        return ((Number) v).doubleValue(); //  Long/Int/Double
+    private static double getDouble(DocumentSnapshot doc, String field) {
+        Object v = doc.get(field);
+        if (v == null)
+            return 0.0;
+
+        if (v instanceof Number) {
+            return ((Number) v).doubleValue(); // Long/Int/Double
+        }
+
+        try {
+            return Double.parseDouble(v.toString());
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
-
-    try {
-        return Double.parseDouble(v.toString()); 
-    } catch (Exception e) {
-        return 0.0;
-    }
-}
-
 
     private List<String> cleanQualifications(List<String> qualifications) {
         if (qualifications == null)
@@ -315,5 +318,17 @@ public DoctorScheduleDto getDoctorScheduleByDate(String doctorId, String date)
             doc.getReference().delete().get();
         }
         return true;
+    }
+
+    public void updateFcmToken(String uid, String fcmToken) {
+        try {
+            firestore.collection("doctors")
+                    .document(uid)
+                    .update("fcmToken", fcmToken)
+                    .get();
+        } catch (Exception e) {
+            log.error("Failed to update doctor FCM token for uid={}", uid, e);
+            throw new RuntimeException("Failed to update doctor FCM token", e);
+        }
     }
 }

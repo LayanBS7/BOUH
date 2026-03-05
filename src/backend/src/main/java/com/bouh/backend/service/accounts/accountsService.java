@@ -68,4 +68,21 @@ public class accountsService {
         }
     }
 
+    public boolean updateUserFcmToken(String uid, String fcmToken) {
+        if (fcmToken == null || fcmToken.isBlank()) {
+            return false;
+        }
+        authDto auth = resolveAuthState(uid);
+        String role = auth.getRole();
+        switch (role) {
+            case "doctor":
+                doctorRepository.updateFcmToken(uid, fcmToken);
+                return true;
+            case "caregiver":
+                caregiverRepository.updateFcmToken(uid, fcmToken);
+                return true;
+            default:
+                return false;
+        }
+    }
 }

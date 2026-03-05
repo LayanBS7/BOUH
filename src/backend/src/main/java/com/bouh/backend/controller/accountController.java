@@ -49,4 +49,16 @@ public class accountController {
         accountResponseDto response = accountService.deleteUsersAccount(firebaseDocUID);
         return ResponseEntity.status(response.isSuccess() ? 200 : 409).body(response);
     }
+
+    @PutMapping("/fcmToken")
+    public ResponseEntity<Void> updateFcmToken(
+            @AuthenticationPrincipal String firebaseDocUID,
+            @RequestBody Map<String, String> body) {
+
+        String fcmToken = body.get("fcmToken");
+        boolean updated = accountService.updateUserFcmToken(firebaseDocUID, fcmToken);
+        return updated
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
+    }
 }

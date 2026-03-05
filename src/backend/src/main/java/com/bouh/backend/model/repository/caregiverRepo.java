@@ -72,12 +72,15 @@ public class caregiverRepo {
     }
 
     /**
-     * Returns the caregiver display name for doctor appointment views. Null if not found.
+     * Returns the caregiver display name for doctor appointment views. Null if not
+     * found.
      */
     public String findNameByUid(String uid) throws ExecutionException, InterruptedException {
-        if (uid == null || uid.isBlank()) return null;
+        if (uid == null || uid.isBlank())
+            return null;
         DocumentSnapshot snapshot = firestore.collection("caregivers").document(uid).get().get();
-        if (!snapshot.exists()) return null;
+        if (!snapshot.exists())
+            return null;
         Object name = snapshot.get("name");
         return name != null ? name.toString() : null;
     }
@@ -115,11 +118,9 @@ public class caregiverRepo {
     }
 
     public Timestamp ConvertChildDOB(LocalDate childDob) {
-
         if (childDob == null) {
             return null;
         }
-
         return Timestamp.of(
                 Date.from(
                         childDob.atStartOfDay(ZoneId.systemDefault())
@@ -127,7 +128,6 @@ public class caregiverRepo {
     }
 
     private void deleteAccountAppointments(String uid) throws Exception {
-
         ApiFuture<QuerySnapshot> future = firestore.collection("appointments")
                 .whereEqualTo("caregiverId", uid)
                 .get();
@@ -136,6 +136,18 @@ public class caregiverRepo {
 
         for (QueryDocumentSnapshot doc : documents) {
             doc.getReference().delete().get();
+        }
+    }
+
+    public void updateFcmToken(String uid, String fcmToken) {
+        try {
+            firestore.collection("caregivers")
+                    .document(uid)
+                    .update("fcmToken", fcmToken)
+                    .get();
+        } catch (Exception e) {
+            log.error("Failed to update caregiver FCM token for uid={}", uid, e);
+            throw new RuntimeException("Failed to update caregiver FCM token", e);
         }
     }
 }
