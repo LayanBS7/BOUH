@@ -494,8 +494,9 @@ class _LoginViewState extends State<LoginView> {
                     ),
                   ),
                 ),
+              ),
             if (_isLoggingIn) BouhLoadingOverlay(),
-            ],
+          ],
           ),
         ),
     );

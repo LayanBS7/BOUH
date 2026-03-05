@@ -51,15 +51,6 @@ class _CaregiverAccountViewState extends State<CaregiverAccountView> {
                     alignment: Alignment.topCenter,
                   ),
 
-                  SafeArea(
-                    bottom: false,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 10, left: 16),
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                      child: _LogoutButton(
-                        onTap: () => _handleLogout(context),
-                      ),
 
                       SafeArea(
                         bottom: false,
@@ -206,9 +197,6 @@ class _CaregiverAccountViewState extends State<CaregiverAccountView> {
                   ),
                 ),
               ],
-            ),
-            if (_isDeletingAccount) BouhLoadingOverlay(),
-          ],
             ),
             if (_isDeletingAccount) BouhLoadingOverlay(),
           ],
