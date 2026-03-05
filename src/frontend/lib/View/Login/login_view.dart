@@ -477,21 +477,20 @@ class _LoginViewState extends State<LoginView> {
               ),
             ),
 
-              /// Decorative background wave.
-              /// Visual-only element; must remain free of logic.
-              if (MediaQuery.of(context).viewInsets.bottom == 0)
-                Positioned(
-                  left: -350,
-                  bottom: -250,
-                  child: Transform.rotate(
-                    alignment: Alignment.bottomLeft,
-                    angle: 11 * math.pi / 180,
-                    child: SizedBox(
-                      height: 500,
-                      child: Image.asset(
-                        'assets/images/wave_login.jpg',
-                        fit: BoxFit.cover,
-                      ),
+            /// Decorative background wave.
+            /// Visual-only element; must remain free of logic.
+            if (MediaQuery.of(context).viewInsets.bottom == 0)
+              Positioned(
+                left: -350,
+                bottom: -250,
+                child: Transform.rotate(
+                  alignment: Alignment.bottomLeft,
+                  angle: 11 * math.pi / 180,
+                  child: SizedBox(
+                    height: 500,
+                    child: Image.asset(
+                      'assets/images/wave_login.jpg',
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),

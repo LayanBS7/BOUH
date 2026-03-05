@@ -60,92 +60,103 @@ class _CaregiverAccountViewState extends State<CaregiverAccountView> {
                       child: _LogoutButton(
                         onTap: () => _handleLogout(context),
                       ),
-                      ),
-                    ),
-                  ),
 
-                  const Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Text(
-                        "المعلومات الشخصية",
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // BODY
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 20),
-
-                    _label("البريد الالكتروني"),
-                    const SizedBox(height: 6),
-                    _field(text: "lobaaliayhya@gmail.com"),
-
-                    const SizedBox(height: 18),
-
-                    _label("الاسم"),
-                    const SizedBox(height: 6),
-                    _field(
-                      text: "لبى آل يحيى",
-                      trailing: _editIcon(onTap: () {}),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    SizedBox(
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ChildrenManagementView(),
+                      SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 10, left: 16),
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: _LogoutButton(
+                              onTap: () => _handleLogout(context),
                             ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: BColors.primary,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        child: Row(
-                          children: const [
-                            Text(
-                              "ادارة الاطفال",
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                      ),
+
+                      const Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Text(
+                            "المعلومات الشخصية",
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
                             ),
-                            Spacer(),
-                            Icon(
-                              Icons.arrow_forward_ios_outlined,
-                              color: Colors.white,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
+                    ],
+                  ),
+                ),
 
-                    const Spacer(),
+                // BODY
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 20),
+
+                        _label("البريد الالكتروني"),
+                        const SizedBox(height: 6),
+                        _field(text: "lobaaliayhya@gmail.com"),
+
+                        const SizedBox(height: 18),
+
+                        _label("الاسم"),
+                        const SizedBox(height: 6),
+                        _field(
+                          text: "لبى آل يحيى",
+                          trailing: _editIcon(onTap: () {}),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        SizedBox(
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const ChildrenManagementView(),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: BColors.primary,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Row(
+                              children: const [
+                                Text(
+                                  "ادارة الاطفال",
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Spacer(),
+                                Icon(
+                                  Icons.arrow_forward_ios_outlined,
+                                  color: Colors.white,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const Spacer(),
 
                     Center(
                       child: Column(
@@ -189,11 +200,14 @@ class _CaregiverAccountViewState extends State<CaregiverAccountView> {
                       ),
                     ),
 
-                    const SizedBox(height: 150),
-                  ],
+                        const SizedBox(height: 150),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
+            if (_isDeletingAccount) BouhLoadingOverlay(),
           ],
             ),
             if (_isDeletingAccount) BouhLoadingOverlay(),
@@ -329,7 +343,7 @@ class _LogoutButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap, // TODO later
+      onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: const [

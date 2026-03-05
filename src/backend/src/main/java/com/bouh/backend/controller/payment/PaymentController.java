@@ -1,5 +1,7 @@
 package com.bouh.backend.controller.payment;
 
+import org.springframework.security.core.Authentication;
+
 import com.bouh.backend.model.Dto.payment.PaymentRequestDto;
 import com.bouh.backend.model.Dto.payment.PaymentResponseDto;
 import com.bouh.backend.service.payment.PaymentService;
@@ -19,8 +21,9 @@ public class PaymentController {
     // Create PaymentIntent
     @PostMapping("/intent")
     public ResponseEntity<PaymentResponseDto> createPaymentIntent(
-            @RequestBody PaymentRequestDto request) {
-        PaymentResponseDto response = paymentService.createPaymentIntent(request);
+            @RequestBody PaymentRequestDto request, Authentication authentication) {
+        String uid = authentication.getName();
+        PaymentResponseDto response = paymentService.createPaymentIntent(request, uid);
         return ResponseEntity.ok(response);
     }
 }
