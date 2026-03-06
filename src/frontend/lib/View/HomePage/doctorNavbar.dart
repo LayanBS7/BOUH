@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'doctorHomePage.dart';
+import 'package:bouh/View/homePage/doctorHomePage.dart';
 import 'package:bouh/View/DoctorAppointment/upAppointments.dart';
 import 'package:bouh/View/DoctorAppointment/prevAppointments.dart';
 import 'package:bouh/View/Profile/DoctorProfile.dart';

@@ -149,6 +149,7 @@ class DoctorHomePageState extends State<DoctorHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    print('OPENED DoctorHomePage from: doctorHomePage.dart');
     final topPadding = MediaQuery.paddingOf(context).top;
     return Directionality(
       textDirection: TextDirection.rtl,

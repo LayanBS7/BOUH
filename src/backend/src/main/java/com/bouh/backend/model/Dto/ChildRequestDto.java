@@ -15,5 +15,5 @@ import lombok.Setter;
 public class ChildRequestDto {
     private String name;
     private String dateOfBirth; // YYYY-MM-DD
-    private String gender;      // male/female (or Arabic)
+    private String gender;    
 }

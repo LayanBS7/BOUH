@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'caregiverHomepage.dart';
+import 'package:bouh/View/caregiverHomepage/caregiverHomepage.dart';
 import 'package:bouh/View/viewAppointments/appointmentspage.dart';
 import 'package:bouh/View/viewAppointments/bookedAppointmentsUpcoming.dart';
 import 'package:bouh/View/viewAppointments/bookedAppointmentsPrevious.dart';

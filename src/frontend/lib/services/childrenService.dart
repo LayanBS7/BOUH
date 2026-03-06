@@ -1,16 +1,29 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:bouh/config/api_config.dart';
+import 'package:bouh/authentication/AuthSession.dart';
 import '../dto/childDto.dart';
 
 class ChildrenService {
-  static const String baseUrl = "http://10.0.2.2:8080/api";
+  Uri _url(String path) => Uri.parse('${ApiConfig.baseUrl}$path');
+
+  Map<String, String> _authHeaders({bool json = false}) {
+    final token = AuthSession.instance.idToken;
+    if (token == null || token.isEmpty) {
+      throw StateError('No JWT (idToken). User not logged in.');
+    }
+    return {
+      if (json) 'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
 
   Future<List<ChildDto>> getChildren(String caregiverId) async {
     final res = await http.get(
-      Uri.parse("$baseUrl/caregiver/$caregiverId/children"),
-      headers: {"Content-Type": "application/json"},
+      _url('/api/caregiver/$caregiverId/children'),
+      headers: _authHeaders(),
     );
-
+    print('GET children raw: ${res.body}');
     if (res.statusCode != 200) {
       throw Exception("Failed to load children: ${res.statusCode} ${res.body}");
     }
@@ -28,8 +41,8 @@ class ChildrenService {
     required String gender,
   }) async {
     final res = await http.post(
-      Uri.parse("$baseUrl/caregiver/$caregiverId/children"),
-      headers: {"Content-Type": "application/json"},
+      _url('/api/caregiver/$caregiverId/children'),
+      headers: _authHeaders(json: true),
       body: jsonEncode({
         "name": name,
         "dateOfBirth": dateOfBirth,
@@ -47,7 +60,8 @@ class ChildrenService {
     required String childId,
   }) async {
     final res = await http.delete(
-      Uri.parse("$baseUrl/caregiver/$caregiverId/children/$childId"),
+      _url('/api/caregiver/$caregiverId/children/$childId'),
+      headers: _authHeaders(),
     );
 
     if (res.statusCode != 200) {
@@ -65,8 +79,8 @@ class ChildrenService {
     required String gender,
   }) async {
     final res = await http.put(
-      Uri.parse("$baseUrl/caregiver/$caregiverId/children/$childId"),
-      headers: {"Content-Type": "application/json"},
+      _url('/api/caregiver/$caregiverId/children/$childId'),
+      headers: _authHeaders(json: true),
       body: jsonEncode({
         "name": name,
         "dateOfBirth": dateOfBirth,

@@ -1,4 +1,7 @@
+import 'package:bouh/authentication/AuthSession.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/services/childrenService.dart';
 import 'package:bouh/dto/childDto.dart';
@@ -12,19 +15,20 @@ class ChildrenManagementView extends StatefulWidget {
 
 class _ChildrenManagementViewState extends State<ChildrenManagementView> {
   final ChildrenService _service = ChildrenService();
-
-  final String caregiverId = "cg_12";
+  late final String caregiverId;
 
   bool isLoading = true;
   List<ChildDto> children = [];
 
-  // ✅ MAX CHILDREN CHECK (added)
+  // Max children limit
   static const int _maxChildren = 5;
   bool get _reachedMaxChildren => children.length >= _maxChildren;
 
   @override
   void initState() {
     super.initState();
+    final uid = AuthSession.instance.userId;
+    caregiverId = uid!; // Firebase UID
     _loadChildren();
   }
 
@@ -33,7 +37,7 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
     try {
       children = await _service.getChildren(caregiverId);
     } catch (e) {
-      _showSnack(" خطأ في تحميل الأطفال");
+      _showSnack("خطأ في تحميل الأطفال");
     }
     setState(() => isLoading = false);
   }
@@ -83,7 +87,7 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
   Future<void> _openAddChildDialog() async {
     final result = await showDialog<_AddChildResult>(
       context: context,
-      builder: (ctx) => _AddChildDialog(),
+      builder: (ctx) => const _AddChildDialog(),
     );
 
     if (result == null) return;
@@ -92,14 +96,18 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
       await _service.addChild(
         caregiverId: caregiverId,
         name: result.name,
-        dateOfBirth: result.dateOfBirth, // YYYY-MM-DD
+        dateOfBirth: result.dateOfBirth,
         gender: result.gender,
       );
       _showSnack("تمت إضافة الطفل");
       await _loadChildren();
     } catch (e) {
-      // احتمال: max 5 children
-      _showSnack("لقد تجاوزت العدد المسموح ");
+      final msg = e.toString();
+      if (msg.contains("5") || msg.toLowerCase().contains("only add up to 5")) {
+        _showSnack("لقد تجاوزت العدد المسموح ($_maxChildren أطفال)");
+      } else {
+        _showSnack("تعذر إضافة الطفل: ${_cleanError(msg)}");
+      }
     }
   }
 
@@ -128,7 +136,8 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
       _showSnack("تم تحديث بيانات الطفل بنجاح");
       await _loadChildren();
     } catch (e) {
-      _showSnack("تعذر تحديث بيانات الطفل");
+      print('UPDATE ERROR: $e');
+      _showSnack("تعذر تحديث بيانات الطفل: ${_cleanError(e.toString())}");
     }
   }
 
@@ -220,7 +229,7 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
                                 ),
                               ...children.map((child) {
                                 final parts = child.dateOfBirth.split("-");
-                                final year = parts.length > 0 ? parts[0] : "";
+                                final year = parts.isNotEmpty ? parts[0] : "";
                                 final month = parts.length > 1 ? parts[1] : "";
                                 final day = parts.length > 2 ? parts[2] : "";
                                 final isFemale =
@@ -251,7 +260,7 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
     );
   }
 
-  // CARD METHOD
+  // Child info card
   Widget _childCard({
     required String name,
     required bool isFemaleSelected,
@@ -348,9 +357,7 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
                   ],
                 ),
               ),
-
               const SizedBox(width: 14),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -378,7 +385,7 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
     );
   }
 
-  // UI helpers
+  // Circular action button
   Widget _circleIconButton({
     required IconData icon,
     required Color iconColor,
@@ -400,6 +407,7 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
     );
   }
 
+  // Read-only input style box
   Widget _inputBox({required String value}) {
     return Container(
       height: 46,
@@ -417,6 +425,7 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
     );
   }
 
+  // Small date box
   Widget _tinyBox({required String label, required String value}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -450,6 +459,7 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
     );
   }
 
+  // Read-only gender segmented box
   Widget _genderSegmented({required bool isFemaleSelected}) {
     final borderColor = Colors.black.withOpacity(0.10);
 
@@ -507,12 +517,12 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
   }
 }
 
-//Dialog result + UI
-
+// Dialog result model
 class _AddChildResult {
   final String name;
   final String dateOfBirth; // YYYY-MM-DD
   final String gender;
+
   _AddChildResult({
     required this.name,
     required this.dateOfBirth,
@@ -550,7 +560,7 @@ class _AddChildDialogState extends State<_AddChildDialog> {
   void initState() {
     super.initState();
 
-    // Prefill for edit
+    // Prefill existing values in edit mode
     if (widget.initialName != null) {
       nameCtrl.text = widget.initialName!;
     }
@@ -569,8 +579,21 @@ class _AddChildDialogState extends State<_AddChildDialog> {
     }
   }
 
+  @override
+  void dispose() {
+    nameCtrl.dispose();
+    yearCtrl.dispose();
+    monthCtrl.dispose();
+    dayCtrl.dispose();
+    super.dispose();
+  }
+
+  // Validate required fields, valid date, and allowed age range
   String? _validate() {
-    if (nameCtrl.text.trim().isEmpty) return "يرجى إدخال اسم الطفل";
+    if (nameCtrl.text.trim().isEmpty) {
+      return "يرجى إدخال اسم الطفل";
+    }
+
     if (yearCtrl.text.trim().isEmpty ||
         monthCtrl.text.trim().isEmpty ||
         dayCtrl.text.trim().isEmpty) {
@@ -581,16 +604,41 @@ class _AddChildDialogState extends State<_AddChildDialog> {
     final m = int.tryParse(monthCtrl.text.trim());
     final d = int.tryParse(dayCtrl.text.trim());
 
-    if (y == null || m == null || d == null)
+    if (y == null || m == null || d == null) {
       return "تاريخ الميلاد يجب أن يكون أرقامًا";
-    if (y < 1900 || y > DateTime.now().year) return "السنة غير صحيحة";
-    if (m < 1 || m > 12) return "الشهر غير صحيح";
-    if (d < 1 || d > 31) return "اليوم غير صحيح";
+    }
+
+    if (y < 1900 || y > DateTime.now().year) {
+      return "السنة غير صحيحة";
+    }
+
+    if (m < 1 || m > 12) {
+      return "الشهر غير صحيح";
+    }
+
+    if (d < 1 || d > 31) {
+      return "اليوم غير صحيح";
+    }
 
     final dob =
         "${y.toString().padLeft(4, '0')}-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}";
-    final parsed = DateTime.tryParse("${dob}T00:00:00");
-    if (parsed == null) return "تاريخ الميلاد غير صحيح";
+
+    final birthDate = DateTime.tryParse("${dob}T00:00:00");
+    if (birthDate == null) {
+      return "تاريخ الميلاد غير صحيح";
+    }
+
+    final today = DateTime.now();
+    int age = today.year - birthDate.year;
+
+    if (today.month < birthDate.month ||
+        (today.month == birthDate.month && today.day < birthDate.day)) {
+      age--;
+    }
+
+    if (age < 6 || age > 13) {
+      return "يجب أن يكون عمر الطفل بين 6 و 13 سنة";
+    }
 
     return null;
   }
@@ -606,16 +654,24 @@ class _AddChildDialogState extends State<_AddChildDialog> {
             children: [
               TextField(
                 controller: nameCtrl,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r"[a-zA-Z\u0600-\u06FF\s]"),
+                  ),
+                ],
                 decoration: const InputDecoration(labelText: "اسم الطفل"),
               ),
               const SizedBox(height: 12),
-
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: yearCtrl,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
                       decoration: const InputDecoration(labelText: "السنة"),
                     ),
                   ),
@@ -624,6 +680,10 @@ class _AddChildDialogState extends State<_AddChildDialog> {
                     child: TextField(
                       controller: monthCtrl,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(2),
+                      ],
                       decoration: const InputDecoration(labelText: "الشهر"),
                     ),
                   ),
@@ -632,14 +692,16 @@ class _AddChildDialogState extends State<_AddChildDialog> {
                     child: TextField(
                       controller: dayCtrl,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(2),
+                      ],
                       decoration: const InputDecoration(labelText: "اليوم"),
                     ),
                   ),
                 ],
               ),
-
               const SizedBox(height: 16),
-
               Row(
                 children: [
                   Expanded(
@@ -720,6 +782,7 @@ class _AddChildDialogState extends State<_AddChildDialog> {
               final y = int.parse(yearCtrl.text.trim());
               final m = int.parse(monthCtrl.text.trim());
               final d = int.parse(dayCtrl.text.trim());
+
               final dob =
                   "${y.toString().padLeft(4, '0')}-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}";
 
