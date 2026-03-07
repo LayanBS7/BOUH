@@ -26,10 +26,12 @@ class CaregiverHomepage extends StatefulWidget {
   final ValueChanged<int>? onTap;
 
   @override
-  State<CaregiverHomepage> createState() => _CaregiverHomepageState();
+  State<CaregiverHomepage> createState() => CaregiverHomepageState();
 }
 
-class _CaregiverHomepageState extends State<CaregiverHomepage> {
+/// State exposed so [CaregiverNavbar] can trigger refresh when home is tapped.
+class CaregiverHomepageState extends State<CaregiverHomepage>
+    with WidgetsBindingObserver {
   static const double _sectionGap = 24;
   static const double _cardGap = 16;
   static const double _headerBaseHeight = 130;
@@ -50,22 +52,38 @@ class _CaregiverHomepageState extends State<CaregiverHomepage> {
   @override
   void initState() {
     super.initState();
+    // Register lifecycle observer so we re-subscribe when app resumes.
+    WidgetsBinding.instance.addObserver(this);
     _prepareSessionAndLoad();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _subscription?.cancel();
     _ticker?.cancel();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When the app comes back to the foreground, re-subscribe to get fresh data.
+    if (state == AppLifecycleState.resumed) {
+      _prepareSessionAndLoad();
+    }
+  }
+
+  /// Call when home nav is tapped to refresh today's appointments.
+  void refresh() {
+    _prepareSessionAndLoad();
+  }
+
   Future<void> _prepareSessionAndLoad() async {
-    final AuthSession _session = AuthSession.instance;
+    final AuthSession session = AuthSession.instance;
     await AuthService.instance.refreshSession();
-    final String? _userId = _session.userId;
+    final String? userId = session.userId;
     if (!mounted) return;
-    _subscribeToStream(_userId);
+    _subscribeToStream(userId);
   }
 
   void _subscribeToStream(String? caregiverId) {
@@ -471,7 +489,7 @@ class _CaregiverHomepageState extends State<CaregiverHomepage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildSectionWithViewAll('مواعيدك اليوم'),
+            _buildSectionTitle('مواعيدك اليوم'),
             const SizedBox(height: 12),
             _buildTodayAppointments(),
             const SizedBox(height: _sectionGap),
@@ -552,6 +570,26 @@ class _CaregiverHomepageState extends State<CaregiverHomepage> {
     );
   }
 
+  Widget _buildSectionTitle(String title) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      textDirection: TextDirection.rtl,
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.right,
+          style: TextStyle(
+            fontFamily: 'Markazi Text',
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
+            color: BColors.textDarkestBlue,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Section header with title and "View All" link. Used for suggested doctors.
   Widget _buildSectionWithViewAll(String title) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,

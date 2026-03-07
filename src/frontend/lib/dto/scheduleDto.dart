@@ -1,33 +1,42 @@
-import 'timeSlotDto.dart';
+class TimeSlotDto {
+  final int index;
+  final bool booked;
+
+  TimeSlotDto({required this.index, required this.booked});
+
+  factory TimeSlotDto.fromJson(Map<String, dynamic> json) {
+    return TimeSlotDto(
+      index: (json['index'] as num).toInt(),
+      booked: json['booked'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'index': index, 'booked': booked};
+  }
+}
 
 class ScheduleDto {
-  final String scheduleId;
   final String date;
   final List<TimeSlotDto> timeSlots;
 
-  ScheduleDto({
-    required this.scheduleId,
-    required this.date,
-    required this.timeSlots,
-  });
+  ScheduleDto({required this.date, required this.timeSlots});
 
   factory ScheduleDto.fromJson(Map<String, dynamic> json) {
-    final slots = (json['timeSlots'] as List? ?? [])
-        .map((e) => TimeSlotDto.fromJson(e as Map<String, dynamic>))
-        .toList();
-
     return ScheduleDto(
-      scheduleId: (json['scheduleId'] ?? '').toString(),
       date: (json['date'] ?? '').toString(),
-      timeSlots: slots,
+      timeSlots:
+          (json['timeSlots'] as List?)
+              ?.map((e) => TimeSlotDto.fromJson(Map<String, dynamic>.from(e)))
+              .toList() ??
+          [],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'scheduleId': scheduleId,
       'date': date,
-      'timeSlots': timeSlots.map((t) => t.toJson()).toList(),
+      'timeSlots': timeSlots.map((e) => e.toJson()).toList(),
     };
   }
 }

@@ -49,12 +49,22 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
         return Directionality(
           textDirection: TextDirection.rtl,
           child: AlertDialog(
-            title: const Text("تأكيد الحذف"),
-            content: Text("هل انت متأكد من حذف ملف ${child.name}؟"),
+            backgroundColor: Colors.white,
+            title: const Text(
+              "تأكيد الحذف",
+              style: TextStyle(color: Colors.black),
+            ),
+            content: Text(
+              "هل انت متأكد من حذف ملف ${child.name}؟",
+              style: const TextStyle(color: Colors.black87),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text("إلغاء"),
+                child: const Text(
+                  "إلغاء",
+                  style: TextStyle(color: Colors.black87),
+                ),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -648,6 +658,7 @@ class _AddChildDialogState extends State<_AddChildDialog> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: AlertDialog(
+        backgroundColor: Colors.white,
         title: Text(widget.isEdit ? "تعديل بيانات الطفل" : "إضافة طفل"),
         content: SingleChildScrollView(
           child: Column(

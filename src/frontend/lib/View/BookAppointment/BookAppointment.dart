@@ -2,58 +2,166 @@ import 'package:bouh/View/BookAppointment/ApointmentDetails.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:bouh/services/scheduleService.dart';
+import 'package:bouh/services/childrenService.dart';
+import 'package:bouh/dto/scheduleDto.dart';
+import 'package:bouh/dto/childDto.dart';
+import 'package:bouh/authentication/AuthSession.dart';
 
 class BookingView extends StatefulWidget {
-  const BookingView({super.key});
+  final String doctorId;
+
+  const BookingView({super.key, required this.doctorId});
 
   @override
   State<BookingView> createState() => _BookingViewState();
 }
 
 class _BookingViewState extends State<BookingView> {
-  // DUMMY DATA
-  final List<String> childrenNames = const ["بسّام", "دانا"];
-  String selectedChild = "بسّام";
+  final ChildrenService _childrenService = ChildrenService();
+
+  List<ChildDto> children = [];
+  String? selectedChildId;
 
   DateTime d(int y, int m, int d) => DateTime(y, m, d);
-  // DUMMY available dates (grey) -> take this later from the contoller
-  //Note that every available date is related to different time slots
-  final Map<DateTime, List<String>> availableSlotsByDate = {
-    DateTime(2025, 10, 12): ["8:00 - 8:30 مساءً", "9:00 - 9:30 مساءً"],
-    DateTime(2025, 10, 13): [
-      "7:00 - 7:30 مساءً",
-      "8:00 - 8:30 مساءً",
-      "9:00 - 9:30 مساءً",
-      "10:00 - 10:30 مساءً",
-    ],
-    DateTime(2025, 10, 25): ["6:00 - 6:30 مساءً", "7:00 - 7:30 مساءً"],
-  };
-  // Selected day (orange) DUMMY
-  DateTime focusedDay = DateTime(2025, 10, 1);
-  DateTime? selectedDay = DateTime(2025, 10, 10);
 
-  int selectedTimeIndex = 0;
+  late DateTime focusedDay;
+  DateTime? selectedDay;
 
-  bool _isAvailable(DateTime day) {
-    final normalized = d(day.year, day.month, day.day);
-    return availableSlotsByDate.containsKey(normalized);
+  int selectedTimeIndex = -1;
+
+  bool isLoadingSchedule = false;
+  bool isLoadingChildren = false;
+
+  String? scheduleError;
+  String? childrenError;
+
+  ScheduleDto? selectedSchedule;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    focusedDay = DateTime(now.year, now.month, now.day);
+    selectedDay = DateTime(now.year, now.month, now.day);
+    _loadChildren();
+    _loadScheduleForSelectedDay();
   }
 
-  List<String> get timeSlots {
-    if (selectedDay == null) return [];
-    final normalized = d(
-      selectedDay!.year,
-      selectedDay!.month,
-      selectedDay!.day,
-    );
-    return availableSlotsByDate[normalized] ?? [];
+  String _two(int n) => n.toString().padLeft(2, '0');
+
+  String _iso(DateTime dt) => "${dt.year}-${_two(dt.month)}-${_two(dt.day)}";
+
+  Future<void> _loadChildren() async {
+    setState(() {
+      isLoadingChildren = true;
+      childrenError = null;
+    });
+
+    try {
+      final caregiverId = AuthSession.instance.userId;
+
+      if (caregiverId == null || caregiverId.isEmpty) {
+        throw Exception("No caregiverId found in session.");
+      }
+
+      final result = await _childrenService.getChildren(caregiverId);
+
+      setState(() {
+        children = result;
+        if (children.isNotEmpty) {
+          selectedChildId = children.first.childId;
+        }
+        isLoadingChildren = false;
+      });
+
+      print("Loaded children count = ${children.length}");
+    } catch (e) {
+      setState(() {
+        childrenError = e.toString();
+        isLoadingChildren = false;
+      });
+    }
+  }
+
+  Future<void> _loadScheduleForSelectedDay() async {
+    if (selectedDay == null) return;
+
+    setState(() {
+      isLoadingSchedule = true;
+      scheduleError = null;
+      selectedSchedule = null;
+      selectedTimeIndex = -1;
+    });
+
+    try {
+      final date = _iso(selectedDay!);
+
+      print("BookingView doctorId = ${widget.doctorId}");
+      print("BookingView selected date = $date");
+
+      final schedule = await ScheduleService.getDoctorScheduleByDate(
+        doctorId: widget.doctorId,
+        date: date,
+      );
+
+      setState(() {
+        selectedSchedule = schedule;
+        isLoadingSchedule = false;
+      });
+    } catch (e) {
+      setState(() {
+        scheduleError = e.toString();
+        isLoadingSchedule = false;
+      });
+    }
+  }
+
+  String _slotLabel(int index) {
+    final totalMinutes = index * 30;
+    final hour = 16 + (totalMinutes ~/ 60);
+    final minute = totalMinutes % 60;
+
+    final nextTotal = totalMinutes + 30;
+    final hour2 = 16 + (nextTotal ~/ 60);
+    final minute2 = nextTotal % 60;
+
+    String fmt(int h, int m) {
+      final hh = h > 12 ? h - 12 : h;
+      return "$hh:${m.toString().padLeft(2, '0')}";
+    }
+
+    return "${fmt(hour, minute)} - ${fmt(hour2, minute2)} مساءً";
+  }
+
+  bool _isAvailable(DateTime day) {
+    if (selectedDay == null) return false;
+
+    return isSameDay(day, selectedDay) &&
+        selectedSchedule != null &&
+        selectedSchedule!.timeSlots.isNotEmpty;
+  }
+
+  List<TimeSlotDto> get availableTimeSlots {
+    if (selectedSchedule == null) return [];
+    return selectedSchedule!.timeSlots
+        .where((slot) => slot.booked == false)
+        .toList();
+  }
+
+  ChildDto? get selectedChild {
+    if (selectedChildId == null) return null;
+    try {
+      return children.firstWhere((c) => c.childId == selectedChildId);
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Title + dropdown UNDER it (stacked)
         Align(
           alignment: Alignment.centerRight,
           child: Text(
@@ -71,35 +179,62 @@ class _BookingViewState extends State<BookingView> {
           alignment: Alignment.centerRight,
           child: Container(
             height: 44,
-            width: 140,
+            width: 160,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12.88),
               border: Border.all(color: Colors.black.withOpacity(0.10)),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                dropdownColor: Colors.white,
-                value: selectedChild,
-                icon: const Icon(Icons.keyboard_arrow_down),
-                items: childrenNames
-                    .map(
-                      (c) => DropdownMenuItem(
-                        value: c,
-                        child: Text(
-                          c,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
+            child: isLoadingChildren
+                ? const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : childrenError != null
+                ? Center(
+                    child: Text(
+                      "خطأ",
+                      style: TextStyle(
+                        color: Colors.red.shade400,
+                        fontWeight: FontWeight.w700,
                       ),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() => selectedChild = v);
-                },
-              ),
-            ),
+                    ),
+                  )
+                : children.isEmpty
+                ? const Center(
+                    child: Text(
+                      "لا يوجد أطفال",
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  )
+                : DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      dropdownColor: Colors.white,
+                      value: selectedChildId,
+                      icon: const Icon(Icons.keyboard_arrow_down),
+                      items: children
+                          .map(
+                            (child) => DropdownMenuItem(
+                              value: child.childId,
+                              child: Text(
+                                child.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => selectedChildId = v);
+                      },
+                    ),
+                  ),
           ),
         ),
 
@@ -116,7 +251,7 @@ class _BookingViewState extends State<BookingView> {
             ),
           ),
         ),
-        // Calendar card
+
         Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
@@ -133,7 +268,7 @@ class _BookingViewState extends State<BookingView> {
           ),
           child: TableCalendar(
             locale: 'ar',
-            firstDay: DateTime.utc(2020, 1, 1),
+            firstDay: DateTime.utc(2026, 1, 1),
             lastDay: DateTime.utc(2030, 12, 31),
             focusedDay: focusedDay,
             startingDayOfWeek: StartingDayOfWeek.sunday,
@@ -145,6 +280,7 @@ class _BookingViewState extends State<BookingView> {
                 selectedDay = sel;
                 focusedDay = foc;
               });
+              _loadScheduleForSelectedDay();
             },
             headerStyle: HeaderStyle(
               formatButtonVisible: false,
@@ -185,7 +321,6 @@ class _BookingViewState extends State<BookingView> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            // Grey available days
             calendarBuilders: CalendarBuilders(
               defaultBuilder: (context, day, _) {
                 if (_isAvailable(day)) {
@@ -229,21 +364,24 @@ class _BookingViewState extends State<BookingView> {
         ),
         const SizedBox(height: 10),
 
-        if (timeSlots.isNotEmpty)
+        if (isLoadingSchedule)
+          const CircularProgressIndicator()
+        else if (scheduleError != null)
+          Text(scheduleError!, style: const TextStyle(color: Colors.red))
+        else if (availableTimeSlots.isNotEmpty)
           LayoutBuilder(
             builder: (context, constraints) {
-              //max 3 per row
-              final itemWidth =
-                  (constraints.maxWidth - (2 * 12)) / 3; // 12 = spacing*2
+              final itemWidth = (constraints.maxWidth - (2 * 12)) / 3;
 
               return Wrap(
-                spacing: 12, // horizontal space between items
-                runSpacing: 12, // vertical space between rows
-                children: List.generate(timeSlots.length, (i) {
+                spacing: 12,
+                runSpacing: 12,
+                children: List.generate(availableTimeSlots.length, (i) {
                   final selected = i == selectedTimeIndex;
+                  final slot = availableTimeSlots[i];
 
                   return SizedBox(
-                    width: itemWidth, // forces 3 items per row
+                    width: itemWidth,
                     child: InkWell(
                       onTap: () => setState(() => selectedTimeIndex = i),
                       borderRadius: BorderRadius.circular(14),
@@ -269,7 +407,7 @@ class _BookingViewState extends State<BookingView> {
                               : [],
                         ),
                         child: Text(
-                          timeSlots[i],
+                          _slotLabel(slot.index),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,
@@ -285,7 +423,9 @@ class _BookingViewState extends State<BookingView> {
                 }),
               );
             },
-          ),
+          )
+        else
+          const Text("لا توجد أوقات متاحة لهذا اليوم"),
 
         const SizedBox(height: 18),
 
@@ -293,27 +433,28 @@ class _BookingViewState extends State<BookingView> {
           width: 220,
           height: 52,
           child: ElevatedButton(
-            onPressed: () {
-              Navigator.of(context, rootNavigator: true).push(
-                MaterialPageRoute(
-                  builder: (_) => const AppointmentDetailsView(
-                    //DUMMY LATER SEND THE CURRNET DOCOTOR'S DATA
-                    doctorName: "د. علي آل يحيى",
-                    timeRange: "10:30 - 11:00 PM",
-                    dateText: "2026-10-10",
-                    childName: "بسّام",
-                    price: 130,
-                    total: 149.5,
-                    // for testing
-                    caregiverId: "TEST_CG_001",
-                    doctorId: "DOC_ALI_001",
-                    childId: "CHILD_BASSAM_001",
+            onPressed: selectedTimeIndex == -1 || selectedChild == null
+                ? null
+                : () {
+                    final selectedSlot = availableTimeSlots[selectedTimeIndex];
 
-                    timeSlotId: "1",
-                  ),
-                ),
-              );
-            },
+                    Navigator.of(context, rootNavigator: true).push(
+                      MaterialPageRoute(
+                        builder: (_) => AppointmentDetailsView(
+                          doctorName: "الطبيبة",
+                          timeRange: _slotLabel(selectedSlot.index),
+                          dateText: _iso(selectedDay!),
+                          childName: selectedChild!.name,
+                          price: 130,
+                          total: 149.5,
+                          caregiverId: AuthSession.instance.userId ?? "",
+                          doctorId: widget.doctorId,
+                          childId: selectedChild!.childId,
+                          timeSlotId: selectedSlot.index.toString(),
+                        ),
+                      ),
+                    );
+                  },
             style: ElevatedButton.styleFrom(
               backgroundColor: BColors.accent,
               elevation: 0,

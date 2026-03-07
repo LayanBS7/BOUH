@@ -28,7 +28,8 @@ class DoctorHomePage extends StatefulWidget {
 }
 
 /// State exposed so [DoctorNavbar] can trigger refresh when home is tapped.
-class DoctorHomePageState extends State<DoctorHomePage> {
+class DoctorHomePageState extends State<DoctorHomePage>
+    with WidgetsBindingObserver {
   static const double _cardGap = 16;
   static const double _headerBaseHeight = 130;
 
@@ -45,14 +46,25 @@ class DoctorHomePageState extends State<DoctorHomePage> {
   @override
   void initState() {
     super.initState();
+    // Register lifecycle observer so we re-subscribe when app resumes.
+    WidgetsBinding.instance.addObserver(this);
     _prepareSessionAndLoad();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _subscription?.cancel();
     _ticker?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When the app comes back to the foreground, re-subscribe to get fresh data.
+    if (state == AppLifecycleState.resumed) {
+      _prepareSessionAndLoad();
+    }
   }
 
   /// Call when home nav is tapped to refresh today's appointments.
@@ -480,7 +492,7 @@ class DoctorHomePageState extends State<DoctorHomePage> {
           // Example: NetworkImage(profileUrl) + placeholder fallback.
           const CircleAvatar(
             radius: 28,
-            backgroundImage: AssetImage('assets/images/doctor.png'),
+            backgroundImage: AssetImage('assets/images/doctor.jpg'),
           ),
           const SizedBox(width: 12),
 
@@ -526,47 +538,18 @@ class DoctorHomePageState extends State<DoctorHomePage> {
   }
 
   Widget _todayHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      textDirection: TextDirection.rtl,
-      children: [
-        Text(
-          'مواعيدك اليوم',
-          textAlign: TextAlign.right,
-          style: TextStyle(
-            fontFamily: 'Markazi Text',
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-            color: BColors.textDarkestBlue,
-          ),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Text(
+        'مواعيدك اليوم',
+        textAlign: TextAlign.right,
+        style: TextStyle(
+          fontFamily: 'Markazi Text',
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          color: BColors.textDarkestBlue,
         ),
-        Padding(
-          padding: const EdgeInsets.only(left: 8, top: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'رؤية الكل',
-                style: TextStyle(
-                  fontFamily: 'Markazi Text',
-                  fontSize: 13,
-                  color: BColors.textBlack,
-                ),
-              ),
-              const SizedBox(width: 4),
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: BColors.textBlack,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
