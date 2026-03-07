@@ -19,7 +19,11 @@ class CaregiverNavbar extends StatefulWidget {
 class _CaregiverNavbarState extends State<CaregiverNavbar> {
   int _currentIndex = 0;
 
+  // Key to access caregiver homepage state for refresh on re-tap.
+  final GlobalKey<CaregiverHomepageState> _homeKey = GlobalKey();
+
   void _onTap(int index) {
+    if (index == _currentIndex) return; // already on this tab
     setState(() => _currentIndex = index);
   }
 
@@ -31,7 +35,7 @@ class _CaregiverNavbarState extends State<CaregiverNavbar> {
       child: IndexedStack(
         index: stackIndex,
         children: [
-          CaregiverHomepage(currentIndex: _currentIndex, onTap: _onTap),
+          CaregiverHomepage(key: _homeKey, currentIndex: _currentIndex, onTap: _onTap),
           RequestAnalysisPage(currentIndex: _currentIndex, onTap: _onTap),
           _AppointmentsTabContent(currentIndex: _currentIndex, onTap: _onTap),
           CaregiverAccountView(currentIndex: _currentIndex, onTap: _onTap),

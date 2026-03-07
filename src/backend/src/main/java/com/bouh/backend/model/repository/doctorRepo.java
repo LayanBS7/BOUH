@@ -1,8 +1,8 @@
 package com.bouh.backend.model.repository;
 
 import com.bouh.backend.model.Dto.DoctorScheduleDto;
-import com.bouh.backend.model.Dto.TimeSlotDto;
 import com.bouh.backend.model.Dto.doctorDto;
+import com.bouh.backend.model.Dto.AvailabilitySchedule.AvailabilityStoredSlotDto;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
@@ -107,7 +107,10 @@ public class doctorRepo {
         var querySnapshot = firestore.collection("doctors").get().get();
 
         for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-
+System.out.println("doctor id = " + doc.getId());
+System.out.println("name = " + doc.get("name"));
+System.out.println("registrationStatus = " + doc.get("registrationStatus"));
+System.out.println("--------------------");
             // IMPORTANT: show only approved doctors (change the status in phase 3 when we
             // have the admin logic) For now, we can set the registrationStatus field to
             // "approved" manually in Firestore for testing.
@@ -161,6 +164,16 @@ public class doctorRepo {
         if (doc == null || !doc.exists()) {
             return null;
         }
+         System.out.println("===== DOCTOR DETAILS DEBUG =====");
+    System.out.println("doctorId = " + doctorId);
+    System.out.println("doc data = " + doc.getData());
+    System.out.println("yearsOfExperience raw = " + doc.get("yearsOfExperience"));
+    System.out.println("yearsOfExperience type = " +
+            (doc.get("yearsOfExperience") == null ? "null" : doc.get("yearsOfExperience").getClass()));
+    System.out.println("qualifications raw = " + doc.get("qualifications"));
+    System.out.println("qualifications type = " +
+            (doc.get("qualifications") == null ? "null" : doc.get("qualifications").getClass()));
+    System.out.println("===============================");
 
         var dto = new com.bouh.backend.model.Dto.DoctorDetailsDto();
         dto.setDoctorID(doctorId);
@@ -176,43 +189,87 @@ public class doctorRepo {
         Long years = doc.getLong("yearsOfExperience");
         dto.setYearsOfExperience(years == null ? 0 : years.intValue());
 
-        dto.setQualifications(getString(doc, "qualifications"));
-        dto.setProfilePhotoURL(getString(doc, "profilePhotoURL"));
+       Object qualificationsObj = doc.get("qualifications");
 
-        return dto;
+if (qualificationsObj instanceof List<?>) {
+    List<String> qualifications = ((List<?>) qualificationsObj)
+            .stream()
+            .map(Object::toString)
+            .map(String::trim)
+            .filter(q -> !q.isEmpty())
+            .toList();
+    dto.setQualifications(qualifications);
+
+} else if (qualificationsObj instanceof String) {
+    String qualificationsStr = ((String) qualificationsObj).trim();
+
+    if (qualificationsStr.isEmpty()) {
+        dto.setQualifications(List.of());
+    } else {
+        dto.setQualifications(List.of(qualificationsStr));
     }
 
-    public DoctorScheduleDto getDoctorScheduleByDate(String doctorId, String date)
-            throws ExecutionException, InterruptedException {
+} else {
+    dto.setQualifications(List.of());
+}
+        dto.setProfilePhotoURL(getString(doc, "profilePhotoURL"));
+System.out.println("FINAL DTO qualifications = " + dto.getQualifications());
+System.out.println("FINAL DTO yearsOfExperience = " + dto.getYearsOfExperience());
+        return dto;
+    }
+public DoctorScheduleDto getDoctorScheduleByDate(String doctorId, String date)
+        throws ExecutionException, InterruptedException {
 
-        var scheduleRef = firestore.collection("doctors")
-                .document(doctorId)
-                .collection("schedule")
-                .document(date);
+    var scheduleRef = firestore.collection("doctors")
+            .document(doctorId)
+            .collection("schedule")
+            .document("current")
+            .collection("TimeSlots")
+            .document(date);
 
-        var scheduleDoc = scheduleRef.get().get();
-        if (scheduleDoc == null || !scheduleDoc.exists()) {
-            return null;
-        }
+    var scheduleDoc = scheduleRef.get().get();
 
-        // read timeSlots subcollection
-        var slotsSnap = scheduleRef.collection("TimeSlots").get().get();
+     if (scheduleDoc == null || !scheduleDoc.exists()) {
+        return new DoctorScheduleDto(date, List.of());
+    }
 
-        var slots = new java.util.ArrayList<TimeSlotDto>();
-        for (var slotDoc : slotsSnap.getDocuments()) {
+    Object rawSlots = scheduleDoc.get("slots");
+    var slots = new java.util.ArrayList<AvailabilityStoredSlotDto>();
 
-            TimeSlotDto slot = slotDoc.toObject(TimeSlotDto.class);
+    if (rawSlots instanceof List<?>) {
+        for (Object item : (List<?>) rawSlots) {
+            if (item instanceof Map<?, ?> map) {
+                AvailabilityStoredSlotDto slot = new AvailabilityStoredSlotDto();
 
-            if (slot != null) {
+                Object indexObj = map.get("index");
+                Object bookedObj = map.get("booked");
+
+                if (indexObj instanceof Number) {
+                    slot.setIndex(((Number) indexObj).intValue());
+                } else {
+                    continue;
+                }
+
+                slot.setBooked(bookedObj instanceof Boolean && (Boolean) bookedObj);
+
                 slots.add(slot);
             }
         }
-
-        var dto = new DoctorScheduleDto();
-        dto.setDate(date);
-        dto.setTimeSlots(slots);
-        return dto;
     }
+
+    var dto = new DoctorScheduleDto();
+    dto.setDate(date);
+    dto.setTimeSlots(slots);
+
+    System.out.println("===== CAREGIVER SCHEDULE DEBUG =====");
+    System.out.println("doctorId = " + doctorId);
+    System.out.println("date = " + date);
+    System.out.println("raw slots = " + rawSlots);
+    System.out.println("mapped slots count = " + slots.size());
+    System.out.println("===================================");
+
+    return dto;
+}
 
     private static String getString(DocumentSnapshot doc, String field) {
         Object value = doc.get(field);

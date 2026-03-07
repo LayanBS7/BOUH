@@ -171,6 +171,30 @@ public class AppointmentRepo {
         return list;
     }
 
+    // Find a single appointment by its paymentIntentId so we can link refunds back to appointments.
+    public appointmentDto findByPaymentIntentId(String paymentIntentId) {
+        if (paymentIntentId == null || paymentIntentId.isBlank()) {
+            return null;
+        }
+        try {
+            QuerySnapshot snapshot = firestore.collection("appointments")
+                    .whereEqualTo("paymentIntentId", paymentIntentId)
+                    .limit(1)
+                    .get()
+                    .get();
+            if (snapshot.isEmpty()) {
+                return null;
+            }
+            QueryDocumentSnapshot doc = snapshot.getDocuments().get(0);
+            return mapDocToDto(doc);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while fetching appointment by paymentIntentId", e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException("Failed to fetch appointment by paymentIntentId", e);
+        }
+    }
+
     // Copy one Firestore document into an appointmentDto. startDateTime is built
     // from date + slot.
     private appointmentDto mapDocToDto(QueryDocumentSnapshot doc) {

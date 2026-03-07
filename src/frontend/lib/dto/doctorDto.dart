@@ -33,6 +33,37 @@ class DoctorDto {
     this.schedule,
   });
 
+  factory DoctorDto.fromJson(Map<String, dynamic> json) {
+    final rawRating = json['averageRating'];
+
+    return DoctorDto(
+      doctorId: (json['doctorId'] ?? json['doctorID'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      gender: (json['gender'] ?? '').toString(),
+      averageRating: rawRating is num
+          ? rawRating.toDouble()
+          : rawRating is String
+          ? double.tryParse(rawRating)
+          : null,
+      areaOfKnowledge: (json['areaOfKnowledge'] ?? '').toString(),
+      qualifications:
+          (json['qualifications'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      yearsOfExperience: (json['yearsOfExperience'] is num)
+          ? (json['yearsOfExperience'] as num).toInt()
+          : int.tryParse(json['yearsOfExperience']?.toString() ?? '') ?? 0,
+      scfhsNumber: (json['scfhsNumber'] ?? '').toString(),
+      iban: (json['iban'] ?? '').toString(),
+      profilePhotoURL: json['profilePhotoURL']?.toString(),
+      fcmToken: json['fcmToken']?.toString(),
+      registrationStatus: (json['registrationStatus'] ?? '').toString(),
+      schedule: null,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'doctorId': doctorId,

@@ -28,10 +28,11 @@ public class doctorsController {
         return ResponseEntity.ok(doctorsService.getDoctorsForCaregiverList());
     }
     // Doctor details for DoctorDetailsView
-    @GetMapping(value = "/caregiver/doctors/{doctorId}", produces = "application/json")
-    public ResponseEntity<DoctorDetailsDto> getDoctorDetails(@PathVariable String doctorId) throws Exception {
-        return ResponseEntity.ok(doctorsService.getDoctorDetails(doctorId));
-    }
+  @GetMapping(value = "/caregiver/doctors/{doctorId}", produces = "application/json")
+public ResponseEntity<DoctorDetailsDto> getDoctorDetails(@PathVariable String doctorId) throws Exception {
+    System.out.println("🔥 DoctorsController called for doctorId = " + doctorId);
+    return ResponseEntity.ok(doctorsService.getDoctorDetails(doctorId));
+}
 
     // Schedule for booking tab
     @GetMapping(value = "/caregiver/doctors/{doctorId}/schedule", produces = "application/json")

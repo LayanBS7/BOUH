@@ -1,7 +1,9 @@
-import 'package:bouh/View/BookAppointment/BookAppointment.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/dto/doctorSummaryDto.dart';
+import 'package:bouh/dto/doctorDto.dart';
+import 'package:bouh/services/doctorsService.dart';
+import 'package:bouh/View/BookAppointment/BookAppointment.dart';
 
 class DoctorDetailsView extends StatefulWidget {
   final DoctorSummaryDto doctor;
@@ -14,56 +16,74 @@ class DoctorDetailsView extends StatefulWidget {
 
 class _DoctorDetailsViewState extends State<DoctorDetailsView> {
   int tabIndex = 0;
+  Future<DoctorDto>? _doctorDetailsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    print("doctorId in details view = ${widget.doctor.doctorId}");
+    if (widget.doctor.doctorId != null && widget.doctor.doctorId!.isNotEmpty) {
+      _doctorDetailsFuture = DoctorsService.getDoctorDetails(
+        widget.doctor.doctorId!,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final doctorName = widget.doctor.name;
-    final doctorMajor = widget.doctor.areaOfKnowledge;
-    final rating = widget.doctor.rating;
-
-    // Keep years as dummy (until backend/DTO provides it)
-    final years = 10;
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            SingleChildScrollView(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  _DoctorInfoCard(
-                    doctorName: doctorName,
-                    doctorMajor: doctorMajor,
-                    rating: rating,
-                    years: years,
-                    tabIndex: tabIndex,
-                    onTapQualifications: () => setState(() => tabIndex = 0),
-                    onTapBooking: () => setState(() => tabIndex = 1),
+            FutureBuilder<DoctorDto>(
+              future: _doctorDetailsFuture,
+              builder: (context, snapshot) {
+                final doctorName = widget.doctor.name;
+                final doctorMajor = widget.doctor.areaOfKnowledge;
+                final rating = widget.doctor.rating;
+
+                final years = snapshot.data?.yearsOfExperience ?? 0;
+                final qualifications = snapshot.data?.qualifications ?? [];
+
+                return SingleChildScrollView(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      _DoctorInfoCard(
+                        doctorName: doctorName,
+                        doctorMajor: doctorMajor,
+                        rating: rating,
+                        years: years,
+                        tabIndex: tabIndex,
+                        onTapQualifications: () => setState(() => tabIndex = 0),
+                        onTapBooking: () => setState(() => tabIndex = 1),
+                      ),
+                      const SizedBox(height: 18),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        child: Column(
+                          children: [
+                            if (tabIndex == 0)
+                              _QualificationsSection(
+                                qualifications: qualifications,
+                              ),
+                            if (tabIndex == 1)
+                              BookingView(doctorId: widget.doctor.doctorId!),
+                            const SizedBox(height: 18),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    child: Column(
-                      children: [
-                        if (tabIndex == 0) const _QualificationsSection(),
-                        if (tabIndex == 1)
-                          BookingView(
-                            // doctorId: widget.doctor.doctorID,
-                          ),
-                        const SizedBox(height: 18),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-            SafeArea(
-              child: Positioned(
-                top: 8,
-                right: 12,
+            Positioned(
+              top: 8,
+              right: 12,
+              child: SafeArea(
                 child: InkWell(
                   onTap: () => Navigator.pop(context),
                   child: const Icon(Icons.chevron_left, size: 34),
@@ -315,11 +335,12 @@ class _SegmentBtn extends StatelessWidget {
 }
 
 class _QualificationsSection extends StatelessWidget {
-  const _QualificationsSection();
+  final List<String> qualifications;
+
+  const _QualificationsSection({required this.qualifications});
 
   @override
   Widget build(BuildContext context) {
-    // No dummy content here — backend will provide real qualifications later.
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -335,15 +356,48 @@ class _QualificationsSection extends StatelessWidget {
           ),
         ],
       ),
-      child: Text(
-        "سيتم عرض المؤهلات هنا عند توفرها من الباكند.",
-        style: TextStyle(
-          fontSize: 14.5,
-          height: 1.6,
-          fontWeight: FontWeight.w600,
-          color: Colors.black.withOpacity(0.60),
-        ),
-      ),
+      child: qualifications.isEmpty
+          ? Text(
+              "لا توجد مؤهلات متاحة حالياً.",
+              style: TextStyle(
+                fontSize: 14.5,
+                height: 1.6,
+                fontWeight: FontWeight.w600,
+                color: Colors.black.withOpacity(0.60),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: qualifications
+                  .map(
+                    (q) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            size: 18,
+                            color: BColors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              q,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                height: 1.6,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black.withOpacity(0.60),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
     );
   }
 }

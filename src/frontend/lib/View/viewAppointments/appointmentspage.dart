@@ -6,9 +6,8 @@ import 'package:bouh/View/caregiverHomepage/widgets/suggestedDoctorCard.dart';
 import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
 import 'package:bouh/View/BookAppointment/DoctorDetails.dart';
 
-import 'package:bouh/dto/DoctorSearchDto.dart';
 import 'package:bouh/dto/doctorSummaryDto.dart';
-import 'package:bouh/services/DoctorSearchService.dart';
+import 'package:bouh/services/doctorsService.dart';
 
 class AppointmentsPage extends StatefulWidget {
   const AppointmentsPage({
@@ -28,14 +27,14 @@ class AppointmentsPage extends StatefulWidget {
 
 class _AppointmentsPageState extends State<AppointmentsPage> {
   final TextEditingController _searchController = TextEditingController();
-  final DoctorSearchService _doctorSearchService = DoctorSearchService();
 
-  List<DoctorSearchDTO> _doctors = [];
+  List<DoctorSummaryDto> _allDoctors = [];
+  List<DoctorSummaryDto> _filteredDoctors = [];
+
   bool _isLoading = false;
   String? _error;
   Timer? _debounce;
 
-  // --- Layout (same style you had) ---
   static const double _titleTopPadding = 24;
   static const double _titleBottomPadding = 24;
   static const double _tabHeight = 44;
@@ -59,40 +58,23 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-
-    // 1) On open: show suggested/top rated doctors
-    _loadTopRatedDoctors();
+    _loadDoctorsForCaregiver();
   }
 
-  void _onSearchChanged() {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      final q = _searchController.text.trim();
-
-      // 2) If search is empty, return to suggested/top rated list
-      if (q.isEmpty) {
-        _loadTopRatedDoctors();
-      } else {
-        // 3) Search by name
-        _searchDoctors(q);
-      }
-    });
-  }
-
-  Future<void> _loadTopRatedDoctors() async {
+  Future<void> _loadDoctorsForCaregiver() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      final results = await _doctorSearchService.getTopRatedDoctors();
+      final results = await DoctorsService.getDoctorsForCaregiver();
       setState(() {
-        _doctors = results;
+        _allDoctors = results;
+        _filteredDoctors = results;
         _isLoading = false;
       });
-    } catch (_) {
+    } catch (e) {
       setState(() {
         _error = 'حدث خطأ في تحميل الأطباء';
         _isLoading = false;
@@ -100,24 +82,24 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     }
   }
 
-  Future<void> _searchDoctors(String name) async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
 
-    try {
-      final results = await _doctorSearchService.searchDoctors(name);
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      final q = _searchController.text.trim().toLowerCase();
+
       setState(() {
-        _doctors = results;
-        _isLoading = false;
+        if (q.isEmpty) {
+          _filteredDoctors = _allDoctors;
+        } else {
+          _filteredDoctors = _allDoctors.where((doctor) {
+            final name = doctor.name.toLowerCase();
+            final specialty = doctor.areaOfKnowledge.toLowerCase();
+            return name.contains(q) || specialty.contains(q);
+          }).toList();
+        }
       });
-    } catch (_) {
-      setState(() {
-        _error = 'حدث خطأ أثناء البحث';
-        _isLoading = false;
-      });
-    }
+    });
   }
 
   @override
@@ -128,20 +110,10 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     super.dispose();
   }
 
-  void _openDoctorDetails(DoctorSearchDTO d) {
-    // Convert DoctorSearchDTO to DoctorSummaryDto because DoctorDetailsView expects DoctorSummaryDto
-    final doctorSummary = DoctorSummaryDto(
-      doctorId: d.id,
-      name: d.name,
-      areaOfKnowledge: d.specialty,
-      rating: d.rating,
-    );
-
+  void _openDoctorDetails(DoctorSummaryDto doctor) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => DoctorDetailsView(doctor: doctorSummary),
-      ),
+      MaterialPageRoute(builder: (_) => DoctorDetailsView(doctor: doctor)),
     );
   }
 
@@ -334,8 +306,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
       );
     }
 
-    if (_doctors.isEmpty) {
-      // If search is empty, show "no doctors"; if search has text, show "no results"
+    if (_filteredDoctors.isEmpty) {
       final q = _searchController.text.trim();
       if (q.isEmpty) {
         return const Center(child: Text("لا يوجد أطباء حالياً"));
@@ -346,18 +317,16 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (int i = 0; i < _doctors.length; i++) ...[
+        for (int i = 0; i < _filteredDoctors.length; i++) ...[
           InkWell(
-            onTap: () => _openDoctorDetails(_doctors[i]),
+            onTap: () => _openDoctorDetails(_filteredDoctors[i]),
             child: SuggestedDoctorCard(
-              name: _doctors[i].name,
-              specialty: _doctors[i].specialty,
-              rating: _doctors[i].rating.toInt(),
-              // إذا الكارد عنده صورة:
-              // profilePhotoURL: _doctors[i].profilePhotoURL,
+              name: _filteredDoctors[i].name,
+              specialty: _filteredDoctors[i].areaOfKnowledge,
+              rating: _filteredDoctors[i].rating.toInt(),
             ),
           ),
-          if (i < _doctors.length - 1) const SizedBox(height: _cardGap),
+          if (i < _filteredDoctors.length - 1) const SizedBox(height: _cardGap),
         ],
       ],
     );

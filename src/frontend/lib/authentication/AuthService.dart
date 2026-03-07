@@ -9,7 +9,6 @@ import '../dto/caregiverDto.dart';
 import '../dto/doctorDto.dart';
 import 'AuthSession.dart';
 
-
 //Auth service: login / logout , reset password , create accounts, register profiles on backend, FCM helpers
 class AuthService {
   AuthService._();
@@ -56,6 +55,14 @@ class AuthService {
     final (role, name) = await _getMeFromBackend(token);
     await _session.setSessionFromBackend(uid: user.uid, role: role, name: name);
 
+    // Send the device FCM token to the backend now that we have a valid session.
+    final fcmToken = await getFcmToken();
+    if (fcmToken != null && fcmToken.isNotEmpty) {
+      try {
+        await updateFcmTokenOnBackend(fcmToken);
+      } catch (_) {}
+    }
+
     return role;
   }
 
@@ -67,9 +74,7 @@ class AuthService {
   }
 
   //Send password reset email
-  Future<String?> sendPasswordResetEmail({
-    required String email,
-  }) async {
+  Future<String?> sendPasswordResetEmail({required String email}) async {
     final normalizedEmail = email.trim();
 
     try {
@@ -97,7 +102,9 @@ class AuthService {
     required String password,
     File? profileImageFile,
   }) async {
-    print('[AuthService] createDoctorAccount: profileImageFile=${profileImageFile != null ? profileImageFile.path : "null"}');
+    print(
+      '[AuthService] createDoctorAccount: profileImageFile=${profileImageFile != null ? profileImageFile.path : "null"}',
+    );
     final credential = await _auth.createUserWithEmailAndPassword(
       email: doctorDto.email.trim(),
       password: password,
@@ -163,7 +170,9 @@ class AuthService {
       final imageUrl = await _uploadDoctorProfileImageToFirebaseStorage(
         _pendingDoctorProfileImage!,
       );
-      print('[AuthService] createPendingDoctorProfileIfAny: upload result imageUrl=${imageUrl.isEmpty ? "(empty)" : imageUrl}');
+      print(
+        '[AuthService] createPendingDoctorProfileIfAny: upload result imageUrl=${imageUrl.isEmpty ? "(empty)" : imageUrl}',
+      );
       if (imageUrl.isNotEmpty) {
         dto.profilePhotoURL = imageUrl;
       }
@@ -172,7 +181,9 @@ class AuthService {
 
     await _registerDoctorOnBackend(dto);
     _pendingDoctorProfile = null;
-    print('[AuthService] createPendingDoctorProfileIfAny: done, doctor registered on backend');
+    print(
+      '[AuthService] createPendingDoctorProfileIfAny: done, doctor registered on backend',
+    );
     return true;
   }
 
@@ -191,8 +202,7 @@ class AuthService {
   //Backend: GET /api/accounts/me ,returns role and name
   Future<(String role, String? name)> _getMeFromBackend(String idToken) async {
     print('logging in. . .');
-    final uri =
-        Uri.parse('${ApiConfig.baseUrl}/api/accounts/me');
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/accounts/me');
 
     final response = await http.get(
       uri,
@@ -207,9 +217,7 @@ class AuthService {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        'Backend error: ${response.statusCode} ${response.body}',
-      );
+      throw Exception('Backend error: ${response.statusCode} ${response.body}');
     }
 
     final map = jsonDecode(response.body) as Map<String, dynamic>;
@@ -219,21 +227,23 @@ class AuthService {
 
     print('role: $role');
     print('name: $name');
-    
+
     if (role == null || (role != 'doctor' && role != 'caregiver')) {
       throw Exception('Invalid role from backend: $role');
     }
 
     //Doctor with PENDING registration
-    final resolvedRole =
-        (role == 'doctor' && registrationStatus == 'PENDING') ? 'pending' : role;
+    final resolvedRole = (role == 'doctor' && registrationStatus == 'PENDING')
+        ? 'pending'
+        : role;
     return (resolvedRole, name);
   }
 
-
   //Uploads doctor profile image to Firebase Storage.
   Future<String> _uploadDoctorProfileImageToFirebaseStorage(File file) async {
-    print('[AuthService] _uploadDoctorProfileImageToFirebaseStorage: file=${file.path}');
+    print(
+      '[AuthService] _uploadDoctorProfileImageToFirebaseStorage: file=${file.path}',
+    );
     final user = _auth.currentUser;
     if (user == null) {
       return '';
@@ -259,9 +269,7 @@ class AuthService {
       throw StateError('No JWT');
     }
 
-    final uri = Uri.parse(
-      '${ApiConfig.baseUrl}/api/accounts/register/doctors',
-    );
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/accounts/register/doctors');
 
     final body = doctorDto.toJson()..['doctorId'] = user.uid;
 
@@ -287,9 +295,7 @@ class AuthService {
   }
 
   //Backend: POST /api/accounts/register/caregivers to register caregiver on backend.
-  Future<void> _registerCaregiverOnBackend(
-    CaregiverDto caregiverDto,
-  ) async {
+  Future<void> _registerCaregiverOnBackend(CaregiverDto caregiverDto) async {
     final user = _auth.currentUser;
     if (user == null || !user.emailVerified) {
       throw StateError('User not verified');
@@ -332,9 +338,7 @@ class AuthService {
       return;
     }
 
-    final uri = Uri.parse(
-      '${ApiConfig.baseUrl}/api/accounts/fcmToken',
-    );
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/accounts/fcmToken');
 
     final response = await http.put(
       uri,
@@ -359,8 +363,10 @@ class AuthService {
 
   //Backend: DELETE /api/accounts/delete to delete account on backend.
   Future<String?> deleteAccountOnBackend() async {
-    print('[AuthService] deleteAccountOnBackend: started for user ${_auth.currentUser?.uid} with token ${_session.idToken}');
-    
+    print(
+      '[AuthService] deleteAccountOnBackend: started for user ${_auth.currentUser?.uid} with token ${_session.idToken}',
+    );
+
     final token = _session.idToken;
     if (token == null || token.isEmpty) {
       throw StateError('No JWT');
@@ -370,9 +376,7 @@ class AuthService {
       throw StateError('User not found');
     }
 
-    final uri = Uri.parse(
-      '${ApiConfig.baseUrl}/api/accounts/delete',
-    );
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/accounts/delete');
     final response = await http.delete(
       uri,
       headers: {
@@ -382,15 +386,13 @@ class AuthService {
     );
 
     print('response.statusCode: ${response.statusCode}');
-     if (response.statusCode == 200) {
+    if (response.statusCode == 200) {
       return '';
-     }
-     else if (response.statusCode == 409) {
-        throw jsonDecode(response.body)['message'] ;
-      }
-      else {
-        throw  jsonDecode(response.body)['message'];
-      }
+    } else if (response.statusCode == 409) {
+      throw jsonDecode(response.body)['message'];
+    } else {
+      throw jsonDecode(response.body)['message'];
+    }
   }
 
   //Session helper: set session from user

@@ -2,12 +2,13 @@ package com.bouh.backend.service.appointments;
 
 import com.bouh.backend.config.TimeSlotConfig;
 import com.bouh.backend.model.Dto.appointmentDto;
+import com.bouh.backend.model.Dto.caregiverDto;
 import com.google.cloud.Timestamp;
 import com.bouh.backend.model.Dto.doctorDto;
 import com.bouh.backend.model.Dto.upcomingAppointmentDto;
 import com.bouh.backend.model.repository.AppointmentRepo;
 import com.bouh.backend.model.repository.caregiverRepo;
-import com.bouh.backend.model.repository.childRepo;
+import com.bouh.backend.model.repository.childrenRepo;
 import com.bouh.backend.model.repository.doctorRepo;
 import org.springframework.stereotype.Service;
 
@@ -39,14 +40,14 @@ public class AppointmentsService {
 
     private final AppointmentRepo appointmentRepo;
     private final doctorRepo doctorRepo;
-    private final childRepo childRepo;
+    private final childrenRepo childrenRepo;
     private final caregiverRepo caregiverRepo;
 
-    public AppointmentsService(AppointmentRepo appointmentRepo, doctorRepo doctorRepo, childRepo childRepo,
+    public AppointmentsService(AppointmentRepo appointmentRepo, doctorRepo doctorRepo, childrenRepo childrenRepo,
             caregiverRepo caregiverRepo) {
         this.appointmentRepo = appointmentRepo;
         this.doctorRepo = doctorRepo;
-        this.childRepo = childRepo;
+        this.childrenRepo = childrenRepo;
         this.caregiverRepo = caregiverRepo;
     }
 
@@ -125,7 +126,8 @@ public class AppointmentsService {
             String id = cgId;
             caregiverFutures.put(id, CompletableFuture.supplyAsync(() -> {
                 try {
-                    return caregiverRepo.findNameByUid(id);
+                    caregiverDto cg = caregiverRepo.findByUid(id);
+                    return cg != null ? cg.getName() : null;
                 } catch (Exception e) {
                     return null;
                 }
@@ -138,7 +140,7 @@ public class AppointmentsService {
             String chId = key.substring(i + 1);
             childFutures.put(key, CompletableFuture.supplyAsync(() -> {
                 try {
-                    String n = childRepo.findChildName(cgId, chId);
+                    String n = childrenRepo.findChildName(cgId, chId);
                     return n != null ? n : "";
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -255,7 +257,7 @@ public class AppointmentsService {
             String chId = key.substring(i + 1);
             childFutures.put(key, CompletableFuture.supplyAsync(() -> {
                 try {
-                    String n = childRepo.findChildName(cgId, chId);
+                    String n = childrenRepo.findChildName(cgId, chId);
                     return n != null ? n : "";
                 } catch (Exception e) {
                     throw new RuntimeException(e);

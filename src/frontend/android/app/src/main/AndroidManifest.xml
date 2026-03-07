@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Push notifications: required for FCM on Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Required by flutter_local_notifications plugin -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Camera: required for "Take Photo" when user captures a new drawing -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Gallery/Photos: required for "Upload from album" on Android 13+ -->
@@ -38,7 +43,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
