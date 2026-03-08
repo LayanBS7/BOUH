@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -68,6 +69,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
   bool _isEditing = false;
   String? _deleteError;
   bool _isDeletingAccount = false;
+  Timer? _deleteErrorTimer;
 
   late final TextEditingController _emailCtrl;
   late final TextEditingController _nameCtrl;
@@ -108,6 +110,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
 
   @override
   void dispose() {
+    _deleteErrorTimer?.cancel();
     _emailCtrl.dispose();
     _nameCtrl.dispose();
     _ibanCtrl.dispose();
@@ -156,9 +159,15 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
       );
     } catch (e) {
       if (!mounted) return;
+      _deleteErrorTimer?.cancel();
       setState(() {
-        _isDeletingAccount = false; 
+        _isDeletingAccount = false;
         _deleteError = e as String;
+      });
+      // Auto-dismiss error so it does not persist.
+      _deleteErrorTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => _deleteError = null);
+        _deleteErrorTimer = null;
       });
     }
   }

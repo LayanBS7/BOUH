@@ -5,7 +5,7 @@ import 'package:bouh/dto/doctorDto.dart';
 import 'package:bouh/dto/doctorSummaryDto.dart';
 
 class DoctorsService {
-  static const String baseUrl = "http://10.0.2.2:8080";
+  static const String baseUrl = "http://172.20.10.2:8080";
 
   static Future<Map<String, String>> _authHeaders() async {
     final user = FirebaseAuth.instance.currentUser;

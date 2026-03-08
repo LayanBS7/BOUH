@@ -24,7 +24,7 @@ class DoctorAccountCreationStep2 extends StatefulWidget {
 class _DoctorAccountCreationStep2State
     extends State<DoctorAccountCreationStep2> {
   static const int _minQualifications = 1;
-  static const int _maxQualifications = 5;
+  static const int _maxQualifications = 12;
 
   final _formKey = GlobalKey<FormState>();
   final _classificationFieldKey = GlobalKey<FormFieldState<String>>();
@@ -343,7 +343,7 @@ class _DoctorAccountCreationStep2State
 
                       const SizedBox(height: 18),
 
-                      // ================= FIELDS (مؤهلات: dynamic list 1–5) =================
+                      // ================= FIELDS (مؤهلات: dynamic list 1–12) =================
                       Align(
                         alignment: Alignment.centerRight,
                         child: const Text(

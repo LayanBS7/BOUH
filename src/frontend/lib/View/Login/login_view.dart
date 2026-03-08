@@ -39,6 +39,7 @@ class _LoginViewState extends State<LoginView> {
   String? _emailError;
   String? _passwordError;
   bool _isLoggingIn = false;
+  bool _obscurePassword = true;
 
   final _emailFieldKey = GlobalKey<FormFieldState<String>>();
   final _passwordFieldKey = GlobalKey<FormFieldState<String>>();
@@ -361,7 +362,7 @@ class _LoginViewState extends State<LoginView> {
                         _LabeledField(
                           label: 'كلمة المرور',
                           keyboardType: TextInputType.text,
-                          obscure: true,
+                          obscure: _obscurePassword,
                           controller: _passwordCtrl,
                           focusNode: _passwordFocusNode,
                           fieldKey: _passwordFieldKey,
@@ -374,6 +375,17 @@ class _LoginViewState extends State<LoginView> {
                             if (_passwordError != null)
                               setState(() => _passwordError = null);
                           },
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: BColors.darkGrey,
+                              size: 22,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscurePassword = !_obscurePassword),
+                          ),
                         ),
                         const SizedBox(height: 18),
 
@@ -515,6 +527,7 @@ class _LabeledField extends StatelessWidget {
   final ValueChanged<String>? onFieldSubmitted;
   final String? serverError;
   final VoidCallback? onChanged;
+  final Widget? suffixIcon;
 
   const _LabeledField({
     required this.label,
@@ -528,6 +541,7 @@ class _LabeledField extends StatelessWidget {
     this.onFieldSubmitted,
     this.serverError,
     this.onChanged,
+    this.suffixIcon,
   });
 
   @override
@@ -558,6 +572,7 @@ class _LabeledField extends StatelessWidget {
               horizontal: 14,
               vertical: 12,
             ),
+            suffixIcon: suffixIcon,
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: BColors.grey),

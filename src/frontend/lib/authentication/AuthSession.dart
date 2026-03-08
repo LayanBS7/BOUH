@@ -48,7 +48,6 @@ class AuthSession {
   }
 
   //Backend login: set session from response { uid, role, name }. Only place role/name are set. Keeps existing idToken if set (e.g. after Firebase login).
-  // role: 'doctor' | 'caregiver' | 'pending' (pending = doctor with registrationStatus PENDING).
   Future<void> setSessionFromBackend({
     required String uid,
     required String role,
