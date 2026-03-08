@@ -2,7 +2,7 @@ package com.bouh.backend.controller;
 
 import com.bouh.backend.model.Dto.*;
 import com.bouh.backend.model.Dto.accountManagment.accountResponseDto;
-import com.bouh.backend.service.accounts.accountsService;
+import com.bouh.backend.service.AccountService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,11 +13,11 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/api/accounts")
-public class accountController {
+public class AccountController {
 
-    private final accountsService accountService;
+    private final AccountService accountService;
 
-    public accountController(accountsService accountService) {
+    public AccountController(AccountService accountService) {
         this.accountService = accountService;
     }
 

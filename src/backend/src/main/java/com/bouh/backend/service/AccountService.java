@@ -9,12 +9,12 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class accountsService {
+public class AccountService {
 
     private final caregiverRepo caregiverRepository;
     private final doctorRepo doctorRepository;
 
-    public accountsService(caregiverRepo caregiverRepo, doctorRepo doctorRepo) {
+    public AccountService(caregiverRepo caregiverRepo, doctorRepo doctorRepo) {
         this.caregiverRepository = caregiverRepo;
         this.doctorRepository = doctorRepo;
     }
