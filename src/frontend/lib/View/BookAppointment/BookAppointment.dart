@@ -51,6 +51,13 @@ class _BookingViewState extends State<BookingView> {
   String _two(int n) => n.toString().padLeft(2, '0');
 
   String _iso(DateTime dt) => "${dt.year}-${_two(dt.month)}-${_two(dt.day)}";
+  DateTime _startOfMonth(DateTime dt) => DateTime(dt.year, dt.month, 1);
+
+  DateTime _maxAllowedDate() {
+    final now = DateTime.now();
+    final plus2 = DateTime(now.year, now.month + 2, now.day);
+    return d(plus2.year, plus2.month, plus2.day);
+  }
 
   Future<void> _loadChildren() async {
     setState(() {
@@ -266,85 +273,93 @@ class _BookingViewState extends State<BookingView> {
               ),
             ],
           ),
-          child: TableCalendar(
-            locale: 'ar',
-            firstDay: DateTime.utc(2026, 1, 1),
-            lastDay: DateTime.utc(2030, 12, 31),
-            focusedDay: focusedDay,
-            startingDayOfWeek: StartingDayOfWeek.sunday,
-            availableGestures: AvailableGestures.horizontalSwipe,
-            selectedDayPredicate: (day) =>
-                selectedDay != null && isSameDay(day, selectedDay),
-            onDaySelected: (sel, foc) {
-              setState(() {
-                selectedDay = sel;
-                focusedDay = foc;
-              });
-              _loadScheduleForSelectedDay();
-            },
-            headerStyle: HeaderStyle(
-              formatButtonVisible: false,
-              titleCentered: true,
-              leftChevronIcon: const Icon(Icons.chevron_left),
-              rightChevronIcon: const Icon(Icons.chevron_right),
-              titleTextStyle: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: Colors.black.withOpacity(0.75),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: TableCalendar(
+              locale: 'ar',
+              firstDay: _startOfMonth(DateTime.now()),
+              lastDay: _maxAllowedDate(),
+              focusedDay: focusedDay,
+              startingDayOfWeek: StartingDayOfWeek.sunday,
+              availableGestures: AvailableGestures.horizontalSwipe,
+              selectedDayPredicate: (day) =>
+                  selectedDay != null && isSameDay(day, selectedDay),
+              onDaySelected: (sel, foc) {
+                setState(() {
+                  selectedDay = sel;
+                  focusedDay = foc;
+                });
+                _loadScheduleForSelectedDay();
+              },
+              onPageChanged: (foc) {
+                setState(() {
+                  focusedDay = foc;
+                });
+              },
+              headerStyle: HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                leftChevronIcon: const Icon(Icons.chevron_left),
+                rightChevronIcon: const Icon(Icons.chevron_right),
+                titleTextStyle: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black.withOpacity(0.75),
+                ),
               ),
-            ),
-            daysOfWeekStyle: DaysOfWeekStyle(
-              weekdayStyle: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.black.withOpacity(0.55),
+              daysOfWeekStyle: DaysOfWeekStyle(
+                weekdayStyle: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black.withOpacity(0.55),
+                ),
+                weekendStyle: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black.withOpacity(0.55),
+                ),
               ),
-              weekendStyle: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.black.withOpacity(0.55),
+              calendarStyle: CalendarStyle(
+                outsideDaysVisible: false,
+                isTodayHighlighted: false,
+                selectedDecoration: BoxDecoration(
+                  color: BColors.accent,
+                  shape: BoxShape.circle,
+                ),
+                selectedTextStyle: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+                defaultTextStyle: TextStyle(
+                  color: Colors.black.withOpacity(0.75),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            calendarStyle: CalendarStyle(
-              outsideDaysVisible: false,
-              isTodayHighlighted: false,
-              selectedDecoration: BoxDecoration(
-                color: BColors.accent,
-                shape: BoxShape.circle,
-              ),
-              selectedTextStyle: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-              defaultTextStyle: TextStyle(
-                color: Colors.black.withOpacity(0.75),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            calendarBuilders: CalendarBuilders(
-              defaultBuilder: (context, day, _) {
-                if (_isAvailable(day)) {
-                  return Center(
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade500,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        "${day.day}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
+              calendarBuilders: CalendarBuilders(
+                defaultBuilder: (context, day, _) {
+                  if (_isAvailable(day)) {
+                    return Center(
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade500,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          "${day.day}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                }
-                return null;
-              },
+                    );
+                  }
+                  return null;
+                },
+              ),
             ),
           ),
         ),

@@ -168,17 +168,22 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
         backgroundColor: Colors.white,
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: FloatingActionButton(
-          onPressed: isLoading
+          onPressed: (isLoading || _reachedMaxChildren)
               ? null
               : () async {
-                  if (_reachedMaxChildren) {
-                    _showSnack(
-                      "لقد تجاوزت العدد المسموح ($_maxChildren أطفال)",
-                    );
-                    return;
-                  }
                   await _openAddChildDialog();
                 },
+
+          // If we want to restore the warning message later:
+          // onPressed: isLoading
+          //     ? null
+          //     : () async {
+          //         if (_reachedMaxChildren) {
+          //           _showSnack("لقد تجاوزت العدد المسموح ($_maxChildren أطفال)");
+          //           return;
+          //         }
+          //         await _openAddChildDialog();
+          //       },
           backgroundColor: _reachedMaxChildren ? Colors.grey : BColors.accent,
           shape: const CircleBorder(),
           elevation: 6,
@@ -587,10 +592,25 @@ class _AddChildDialogState extends State<_AddChildDialog> {
     if (widget.initialGender != null) {
       isFemale = widget.initialGender!.toLowerCase() == "female";
     }
+
+    // Rebuild dialog while typing so button state updates live
+    nameCtrl.addListener(_refresh);
+    yearCtrl.addListener(_refresh);
+    monthCtrl.addListener(_refresh);
+    dayCtrl.addListener(_refresh);
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    nameCtrl.removeListener(_refresh);
+    yearCtrl.removeListener(_refresh);
+    monthCtrl.removeListener(_refresh);
+    dayCtrl.removeListener(_refresh);
+
     nameCtrl.dispose();
     yearCtrl.dispose();
     monthCtrl.dispose();
@@ -598,7 +618,7 @@ class _AddChildDialogState extends State<_AddChildDialog> {
     super.dispose();
   }
 
-  // Validate required fields, valid date, and allowed age range
+  // Final validation for submission
   String? _validate() {
     if (nameCtrl.text.trim().isEmpty) {
       return "يرجى إدخال اسم الطفل";
@@ -638,6 +658,11 @@ class _AddChildDialogState extends State<_AddChildDialog> {
       return "تاريخ الميلاد غير صحيح";
     }
 
+    // Make sure entered date is exactly valid (reject 2020-02-31)
+    if (birthDate.year != y || birthDate.month != m || birthDate.day != d) {
+      return "تاريخ الميلاد غير صحيح";
+    }
+
     final today = DateTime.now();
     int age = today.year - birthDate.year;
 
@@ -653,6 +678,12 @@ class _AddChildDialogState extends State<_AddChildDialog> {
     return null;
   }
 
+  // Button enabled only when everything is valid
+  bool get _canSubmit =>
+      nameCtrl.text.trim().isNotEmpty &&
+      yearCtrl.text.trim().isNotEmpty &&
+      monthCtrl.text.trim().isNotEmpty &&
+      dayCtrl.text.trim().isNotEmpty;
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -778,34 +809,38 @@ class _AddChildDialogState extends State<_AddChildDialog> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: BColors.accent,
+              backgroundColor: _canSubmit
+                  ? BColors.accent
+                  : Colors.grey.shade400,
               foregroundColor: Colors.white,
             ),
-            onPressed: () {
-              final err = _validate();
-              if (err != null) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(err)));
-                return;
-              }
+            onPressed: !_canSubmit
+                ? null
+                : () {
+                    final err = _validate();
+                    if (err != null) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(err)));
+                      return;
+                    }
 
-              final y = int.parse(yearCtrl.text.trim());
-              final m = int.parse(monthCtrl.text.trim());
-              final d = int.parse(dayCtrl.text.trim());
+                    final y = int.parse(yearCtrl.text.trim());
+                    final m = int.parse(monthCtrl.text.trim());
+                    final d = int.parse(dayCtrl.text.trim());
 
-              final dob =
-                  "${y.toString().padLeft(4, '0')}-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}";
+                    final dob =
+                        "${y.toString().padLeft(4, '0')}-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}";
 
-              Navigator.pop(
-                context,
-                _AddChildResult(
-                  name: nameCtrl.text.trim(),
-                  dateOfBirth: dob,
-                  gender: isFemale ? "female" : "male",
-                ),
-              );
-            },
+                    Navigator.pop(
+                      context,
+                      _AddChildResult(
+                        name: nameCtrl.text.trim(),
+                        dateOfBirth: dob,
+                        gender: isFemale ? "female" : "male",
+                      ),
+                    );
+                  },
             child: Text(widget.isEdit ? "حفظ" : "إضافة"),
           ),
         ],

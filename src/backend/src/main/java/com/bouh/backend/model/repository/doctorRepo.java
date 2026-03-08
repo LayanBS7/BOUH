@@ -7,6 +7,8 @@ import com.bouh.backend.model.Dto.AvailabilitySchedule.AvailabilityStoredSlotDto
 import com.google.cloud.firestore.*;
 import com.google.firebase.auth.FirebaseAuth;
 import lombok.extern.slf4j.Slf4j;
+
+import org.checkerframework.checker.units.qual.t;
 import org.springframework.stereotype.Repository;
 import java.util.HashMap;
 import java.util.List;
