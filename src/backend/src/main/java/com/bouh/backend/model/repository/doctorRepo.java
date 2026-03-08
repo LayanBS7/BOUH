@@ -1,6 +1,7 @@
 package com.bouh.backend.model.repository;
 
 import com.bouh.backend.model.Dto.DoctorScheduleDto;
+import com.bouh.backend.model.Dto.appointmentDto;
 import com.bouh.backend.model.Dto.doctorDto;
 import com.bouh.backend.model.Dto.AvailabilitySchedule.AvailabilityStoredSlotDto;
 import com.google.api.core.ApiFuture;
@@ -8,6 +9,8 @@ import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import com.google.firebase.auth.FirebaseAuth;
 import lombok.extern.slf4j.Slf4j;
+
+import org.checkerframework.checker.units.qual.t;
 import org.springframework.stereotype.Repository;
 import java.util.HashMap;
 import java.util.List;
@@ -23,9 +26,11 @@ public class doctorRepo {
 
     // Spring Boot will inject the globally created Firestore bean (from Config)
     private final Firestore firestore;
+    private final AppointmentRepo appointment;
 
-    public doctorRepo(Firestore firestore) {
+    public doctorRepo(Firestore firestore, AppointmentRepo appointment) {
         this.firestore = firestore;
+        this.appointment = appointment;
     }
 
     public void createDoctor(String uid, doctorDto dto) {
@@ -107,10 +112,10 @@ public class doctorRepo {
         var querySnapshot = firestore.collection("doctors").get().get();
 
         for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-System.out.println("doctor id = " + doc.getId());
-System.out.println("name = " + doc.get("name"));
-System.out.println("registrationStatus = " + doc.get("registrationStatus"));
-System.out.println("--------------------");
+            System.out.println("doctor id = " + doc.getId());
+            System.out.println("name = " + doc.get("name"));
+            System.out.println("registrationStatus = " + doc.get("registrationStatus"));
+            System.out.println("--------------------");
             // IMPORTANT: show only approved doctors (change the status in phase 3 when we
             // have the admin logic) For now, we can set the registrationStatus field to
             // "approved" manually in Firestore for testing.
@@ -164,16 +169,16 @@ System.out.println("--------------------");
         if (doc == null || !doc.exists()) {
             return null;
         }
-         System.out.println("===== DOCTOR DETAILS DEBUG =====");
-    System.out.println("doctorId = " + doctorId);
-    System.out.println("doc data = " + doc.getData());
-    System.out.println("yearsOfExperience raw = " + doc.get("yearsOfExperience"));
-    System.out.println("yearsOfExperience type = " +
-            (doc.get("yearsOfExperience") == null ? "null" : doc.get("yearsOfExperience").getClass()));
-    System.out.println("qualifications raw = " + doc.get("qualifications"));
-    System.out.println("qualifications type = " +
-            (doc.get("qualifications") == null ? "null" : doc.get("qualifications").getClass()));
-    System.out.println("===============================");
+        System.out.println("===== DOCTOR DETAILS DEBUG =====");
+        System.out.println("doctorId = " + doctorId);
+        System.out.println("doc data = " + doc.getData());
+        System.out.println("yearsOfExperience raw = " + doc.get("yearsOfExperience"));
+        System.out.println("yearsOfExperience type = " +
+                (doc.get("yearsOfExperience") == null ? "null" : doc.get("yearsOfExperience").getClass()));
+        System.out.println("qualifications raw = " + doc.get("qualifications"));
+        System.out.println("qualifications type = " +
+                (doc.get("qualifications") == null ? "null" : doc.get("qualifications").getClass()));
+        System.out.println("===============================");
 
         var dto = new com.bouh.backend.model.Dto.DoctorDetailsDto();
         dto.setDoctorID(doctorId);
@@ -189,87 +194,88 @@ System.out.println("--------------------");
         Long years = doc.getLong("yearsOfExperience");
         dto.setYearsOfExperience(years == null ? 0 : years.intValue());
 
-       Object qualificationsObj = doc.get("qualifications");
+        Object qualificationsObj = doc.get("qualifications");
 
-if (qualificationsObj instanceof List<?>) {
-    List<String> qualifications = ((List<?>) qualificationsObj)
-            .stream()
-            .map(Object::toString)
-            .map(String::trim)
-            .filter(q -> !q.isEmpty())
-            .toList();
-    dto.setQualifications(qualifications);
+        if (qualificationsObj instanceof List<?>) {
+            List<String> qualifications = ((List<?>) qualificationsObj)
+                    .stream()
+                    .map(Object::toString)
+                    .map(String::trim)
+                    .filter(q -> !q.isEmpty())
+                    .toList();
+            dto.setQualifications(qualifications);
 
-} else if (qualificationsObj instanceof String) {
-    String qualificationsStr = ((String) qualificationsObj).trim();
+        } else if (qualificationsObj instanceof String) {
+            String qualificationsStr = ((String) qualificationsObj).trim();
 
-    if (qualificationsStr.isEmpty()) {
-        dto.setQualifications(List.of());
-    } else {
-        dto.setQualifications(List.of(qualificationsStr));
-    }
+            if (qualificationsStr.isEmpty()) {
+                dto.setQualifications(List.of());
+            } else {
+                dto.setQualifications(List.of(qualificationsStr));
+            }
 
-} else {
-    dto.setQualifications(List.of());
-}
+        } else {
+            dto.setQualifications(List.of());
+        }
         dto.setProfilePhotoURL(getString(doc, "profilePhotoURL"));
-System.out.println("FINAL DTO qualifications = " + dto.getQualifications());
-System.out.println("FINAL DTO yearsOfExperience = " + dto.getYearsOfExperience());
+        System.out.println("FINAL DTO qualifications = " + dto.getQualifications());
+        System.out.println("FINAL DTO yearsOfExperience = " + dto.getYearsOfExperience());
         return dto;
     }
-public DoctorScheduleDto getDoctorScheduleByDate(String doctorId, String date)
-        throws ExecutionException, InterruptedException {
 
-    var scheduleRef = firestore.collection("doctors")
-            .document(doctorId)
-            .collection("schedule")
-            .document("current")
-            .collection("TimeSlots")
-            .document(date);
+    public DoctorScheduleDto getDoctorScheduleByDate(String doctorId, String date)
+            throws ExecutionException, InterruptedException {
 
-    var scheduleDoc = scheduleRef.get().get();
+        var scheduleRef = firestore.collection("doctors")
+                .document(doctorId)
+                .collection("schedule")
+                .document("current")
+                .collection("TimeSlots")
+                .document(date);
 
-     if (scheduleDoc == null || !scheduleDoc.exists()) {
-        return new DoctorScheduleDto(date, List.of());
-    }
+        var scheduleDoc = scheduleRef.get().get();
 
-    Object rawSlots = scheduleDoc.get("slots");
-    var slots = new java.util.ArrayList<AvailabilityStoredSlotDto>();
+        if (scheduleDoc == null || !scheduleDoc.exists()) {
+            return new DoctorScheduleDto(date, List.of());
+        }
 
-    if (rawSlots instanceof List<?>) {
-        for (Object item : (List<?>) rawSlots) {
-            if (item instanceof Map<?, ?> map) {
-                AvailabilityStoredSlotDto slot = new AvailabilityStoredSlotDto();
+        Object rawSlots = scheduleDoc.get("slots");
+        var slots = new java.util.ArrayList<AvailabilityStoredSlotDto>();
 
-                Object indexObj = map.get("index");
-                Object bookedObj = map.get("booked");
+        if (rawSlots instanceof List<?>) {
+            for (Object item : (List<?>) rawSlots) {
+                if (item instanceof Map<?, ?> map) {
+                    AvailabilityStoredSlotDto slot = new AvailabilityStoredSlotDto();
 
-                if (indexObj instanceof Number) {
-                    slot.setIndex(((Number) indexObj).intValue());
-                } else {
-                    continue;
+                    Object indexObj = map.get("index");
+                    Object bookedObj = map.get("booked");
+
+                    if (indexObj instanceof Number) {
+                        slot.setIndex(((Number) indexObj).intValue());
+                    } else {
+                        continue;
+                    }
+
+                    slot.setBooked(bookedObj instanceof Boolean && (Boolean) bookedObj);
+
+                    slots.add(slot);
                 }
-
-                slot.setBooked(bookedObj instanceof Boolean && (Boolean) bookedObj);
-
-                slots.add(slot);
             }
         }
+
+        var dto = new DoctorScheduleDto();
+        dto.setDate(date);
+        dto.setTimeSlots(slots);
+
+        System.out.println("===== CAREGIVER SCHEDULE DEBUG =====");
+        System.out.println("doctorId = " + doctorId);
+        System.out.println("date = " + date);
+        System.out.println("raw slots = " + rawSlots);
+        System.out.println("mapped slots count = " + slots.size());
+        System.out.println("===================================");
+
+        return dto;
     }
-
-    var dto = new DoctorScheduleDto();
-    dto.setDate(date);
-    dto.setTimeSlots(slots);
-
-    System.out.println("===== CAREGIVER SCHEDULE DEBUG =====");
-    System.out.println("doctorId = " + doctorId);
-    System.out.println("date = " + date);
-    System.out.println("raw slots = " + rawSlots);
-    System.out.println("mapped slots count = " + slots.size());
-    System.out.println("===================================");
-
-    return dto;
-}
 
     private static String getString(DocumentSnapshot doc, String field) {
         Object value = doc.get(field);
@@ -311,11 +317,10 @@ public DoctorScheduleDto getDoctorScheduleByDate(String doctorId, String date)
                 throw new RuntimeException("Doctor not found. Aborting deletion.");
             }
 
-            // check if no upcoming exists to allow account delete
-            if (!deleteAccountAppointments(uid)) {
+            List<appointmentDto> upcoming = appointment.findByDoctorIdAndDateFromToday(uid);
+            if (!upcoming.isEmpty()) {
                 return "upcoming-appointment-found";
             }
-
             DocumentReference doctorRef = firestore.collection("doctors").document(uid);
 
             // delete doctor profile image if exists
@@ -348,35 +353,7 @@ public DoctorScheduleDto getDoctorScheduleByDate(String doctorId, String date)
         }
 
     }
-
-    private Boolean deleteAccountAppointments(String uid) throws Exception {
-
-        Timestamp now = Timestamp.now();
-
-        // fetch the frist upcoming appointemnt
-        ApiFuture<QuerySnapshot> upcomingFuture = firestore.collection("appointments")
-                .whereEqualTo("doctorId", uid)
-                .whereGreaterThan("startDateTime", now)
-                .limit(1)
-                .get();
-
-        // if doctor has upcomings, abort account deletion
-        if (!upcomingFuture.get().isEmpty()) {
-            return false;
-        }
-
-        // delete all appointments for this doctor
-        ApiFuture<QuerySnapshot> allAppointmentsFuture = firestore.collection("appointments")
-                .whereEqualTo("doctorId", uid)
-                .get();
-
-        List<QueryDocumentSnapshot> documents = allAppointmentsFuture.get().getDocuments();
-        for (QueryDocumentSnapshot doc : documents) {
-            doc.getReference().delete().get();
-        }
-        return true;
-    }
-
+    
     public void updateFcmToken(String uid, String fcmToken) {
         try {
             firestore.collection("doctors")
