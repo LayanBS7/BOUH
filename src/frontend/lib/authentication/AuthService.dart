@@ -238,7 +238,7 @@ class AuthService {
     return (resolvedRole, name);
   }
 
-  //Uploads doctor profile image to Firebase Storage.
+  //Uploads doctor profile image to Firebase Storage and returns the download URL.
   Future<String> _uploadDoctorProfileImageToFirebaseStorage(File file) async {
     print(
       '[AuthService] _uploadDoctorProfileImageToFirebaseStorage: file=${file.path}',
@@ -252,7 +252,7 @@ class AuthService {
         .child('doctorProfileImages')
         .child('${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
     await ref.putFile(file);
-    final url = await ref.fullPath;
+    final url = await ref.getDownloadURL();
     return url;
   }
 
