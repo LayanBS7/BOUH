@@ -305,7 +305,7 @@ public class doctorRepo {
         return qualifications.stream()
                 .map(String::trim)
                 .filter(q -> !q.isEmpty())
-                .limit(5) // safety limit
+                .limit(12) // safety limit
                 .toList();
     }
 
