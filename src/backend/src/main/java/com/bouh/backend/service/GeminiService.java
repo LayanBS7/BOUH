@@ -37,8 +37,7 @@ public class GeminiService {
     /**
      * Full Gemini endpoint URL injected from application.properties.
      * Key: gemini.api.url
-     * Points to the generateContent endpoint for gemini-1.5-pro.
-     * Example: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent
+     * Points to the generateContent endpoint for gemini-2.5-
      */
     @Value("${gemini.api.url}")
     private String apiUrl;
@@ -59,7 +58,7 @@ public class GeminiService {
      * - writeTimeout: time to finish sending the request body
      */
     private final OkHttpClient httpClient = new OkHttpClient.Builder()
-            .protocols(List.of(Protocol.HTTP_2))
+            .protocols(List.of(Protocol.HTTP_2, Protocol.HTTP_1_1)) // HTTP/2 but fallback to HTTP/1.1 if needed 
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
