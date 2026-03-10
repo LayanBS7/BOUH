@@ -1,23 +1,20 @@
-package com.bouh.backend.service.accounts;
-
+package com.bouh.backend.service;
 import com.bouh.backend.model.Dto.*;
 import com.bouh.backend.model.Dto.accountManagment.accountResponseDto;
 import com.bouh.backend.model.Dto.accountManagment.authDto;
 import com.bouh.backend.model.repository.caregiverRepo;
 import com.bouh.backend.model.repository.doctorRepo;
-
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class accountsService {
+public class AccountService {
 
     private final caregiverRepo caregiverRepository;
     private final doctorRepo doctorRepository;
 
-    public accountsService(caregiverRepo caregiverRepo, doctorRepo doctorRepo) {
+    public AccountService(caregiverRepo caregiverRepo, doctorRepo doctorRepo) {
         this.caregiverRepository = caregiverRepo;
         this.doctorRepository = doctorRepo;
     }

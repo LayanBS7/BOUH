@@ -5,12 +5,10 @@ import com.bouh.backend.model.Dto.appointmentDto;
 import com.bouh.backend.model.Dto.doctorDto;
 import com.bouh.backend.model.Dto.AvailabilitySchedule.AvailabilityStoredSlotDto;
 import com.google.api.core.ApiFuture;
-import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import com.google.firebase.auth.FirebaseAuth;
 import lombok.extern.slf4j.Slf4j;
 
-import org.checkerframework.checker.units.qual.t;
 import org.springframework.stereotype.Repository;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +17,9 @@ import java.util.concurrent.ExecutionException;
 import com.google.firebase.cloud.StorageClient;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.Blob;
+
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j // for log debugging
 @Repository
@@ -305,7 +306,7 @@ public class doctorRepo {
         return qualifications.stream()
                 .map(String::trim)
                 .filter(q -> !q.isEmpty())
-                .limit(5) // safety limit
+                .limit(12) // safety limit
                 .toList();
     }
 
@@ -322,6 +323,9 @@ public class doctorRepo {
                 return "upcoming-appointment-found";
             }
             DocumentReference doctorRef = firestore.collection("doctors").document(uid);
+
+            // delete all doctor appointments
+            deleteByDoctorId(uid);
 
             // delete doctor profile image if exists
             String ImagePathToDelete = doctor.getProfilePhotoURL();
@@ -340,20 +344,6 @@ public class doctorRepo {
         }
     }
 
-    public void deleteAccountProfileImage(String ImagePath) {
-
-        Bucket bucket = StorageClient.getInstance().bucket("bouh-94761.firebasestorage.app");
-        Blob blob = bucket.get(ImagePath);
-
-        if (blob != null) {
-            blob.delete();
-            log.info("Image deleted successfully: " + ImagePath);
-        } else {
-            log.error("image not found " + ImagePath);
-        }
-
-    }
-    
     public void updateFcmToken(String uid, String fcmToken) {
         try {
             firestore.collection("doctors")
@@ -363,6 +353,51 @@ public class doctorRepo {
         } catch (Exception e) {
             log.error("Failed to update doctor FCM token for uid={}", uid, e);
             throw new RuntimeException("Failed to update doctor FCM token", e);
+        }
+    }
+
+    public void deleteAccountProfileImage(String imageUrl) {
+
+        String imagePath = extractPathFromUrl(imageUrl);
+
+        if (imagePath == null) {
+            log.error("Invalid image URL");
+            return;
+        }
+
+        Bucket bucket = StorageClient.getInstance().bucket("bouh-94761.firebasestorage.app");
+        Blob blob = bucket.get(imagePath);
+
+        if (blob != null) {
+            blob.delete();
+            log.info("Image deleted successfully: " + imagePath);
+        } else {
+            log.error("Image not found: " + imagePath);
+        }
+    }
+
+    public void deleteByDoctorId(String uid) throws Exception {
+
+        ApiFuture<QuerySnapshot> future = firestore.collection("appointments")
+                .whereEqualTo("doctorId", uid)
+                .get();
+
+        List<QueryDocumentSnapshot> docs = future.get().getDocuments();
+
+        for (QueryDocumentSnapshot doc : docs) {
+            doc.getReference().delete().get();
+        }
+    }
+
+    public String extractPathFromUrl(String imageUrl) {
+        try {
+
+            String path = imageUrl.substring(imageUrl.indexOf("/o/") + 3, imageUrl.indexOf("?"));
+            return URLDecoder.decode(path, StandardCharsets.UTF_8);
+
+        } catch (Exception e) {
+            log.error("Failed to extract path from URL: " + imageUrl);
+            return null;
         }
     }
 }
