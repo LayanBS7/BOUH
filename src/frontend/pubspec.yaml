@@ -31,16 +31,26 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.2
+  firebase_auth: ^5.3.4
+  firebase_storage: ^12.0.0
+  shared_preferences: ^2.2.3
+  flutter_stripe: ^12.2.0
+  firebase_core: ^3.15.2
+  cloud_firestore: ^5.6.12
 
   flutter_localizations:
     sdk: flutter
-
+  
   cupertino_icons: ^1.0.8
   google_fonts: ^6.1.0
   flutter_svg: ^2.0.10
   image_picker: ^1.2.1
   intl: ^0.20.2
   table_calendar: ^3.1.1
+  url_launcher: ^6.2.5
+  firebase_messaging: ^15.2.10
+  flutter_local_notifications: ^18.0.1
+
 
 
  
@@ -55,6 +65,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -66,12 +78,14 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
+    - assets/images/
+    - assets/Images/
     - assets/images/ProfileBackground.png
     - assets/images/DoctorDetails.png
     - assets/images/NoSelectedChild_PlaceHolder.png
     - assets/images/wave.jpg
-    - assets/images/
-    - assets/Images/wave_Draw.png
+    - assets/images/wave_Draw.png
+
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -101,3 +115,21 @@ flutter:
     - family: Markazi Text
       fonts:
         - asset: assets/fonts/MarkaziText-Regular.ttf
+
+# App icon (Android/iOS)
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/Images/appOutside_logo.png"
+  remove_alpha_ios: true
+
+# Native splash
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: "assets/Images/splash_logo.png"
+  android: true
+  ios: true
+  # Android 12+ uses a different API; must be set here or splash won't show correctly
+  android_12:
+    image: "assets/Images/splash_logo.png"
+    icon_background_color: "#FFFFFF"

@@ -35,7 +35,7 @@ class CaregiverBottomNav extends StatelessWidget {
   /// Height of the bar. Use for content padding (e.g. scroll view bottom padding).
   static const double barHeight = 92;
 
-  // --- Layout constants (must match original bar exactly; do not change visuals) ---
+  // --- Layout constants ---
   static const double _bottomNavHeight = barHeight;
   static const double _navIconSize = 24;
   static const double _navLabelGap = 4;

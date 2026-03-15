@@ -37,6 +37,7 @@ class AppointmentCard extends StatelessWidget {
     this.profileImage,
     this.actionLabel,
     this.actionColor,
+    this.onActionTap,
   });
 
   /// Full name of the doctor.
@@ -63,6 +64,9 @@ class AppointmentCard extends StatelessWidget {
   /// Optional action button background color. Default: [BColors.accent].
   final Color? actionColor;
 
+  /// Optional: called when the action button is tapped (e.g. open meeting link for انضمام).
+  final VoidCallback? onActionTap;
+
   // --- Layout constants (must match original card exactly) ---
   static const double _cardRadius = 16;
   static const double _cardPadding = 16;
@@ -76,8 +80,7 @@ class AppointmentCard extends StatelessWidget {
   /// Child name badge background (e.g. "بسام" chip).
   static const Color _chipBackground = Color(0xFFA6BECB);
 
-  /// Vertical offset for date/time text only (icons stay in place).
-  static const double _dateTimeTextOffsetY = 1.5;
+  static const double _dateTimeTextOffsetY = 1;
 
   /// Vertical offset for doctor name and specialty (moves them down slightly).
   static const double _nameSpecialtyOffsetY = 4;
@@ -151,19 +154,19 @@ class AppointmentCard extends StatelessWidget {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerRight,
-                        child: Transform.translate(
-                          offset: const Offset(0, _dateTimeTextOffsetY),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            textDirection: TextDirection.rtl,
-                            children: [
-                              Icon(
-                                Icons.calendar_today,
-                                size: 14,
-                                color: BColors.darkGrey,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          textDirection: TextDirection.rtl,
+                          children: [
+                            Icon(
+                              Icons.calendar_today,
+                              size: 14,
+                              color: BColors.darkGrey,
+                            ),
+                            const SizedBox(width: 6),
+                            Transform.translate(
+                              offset: const Offset(0, _dateTimeTextOffsetY),
+                              child: Text(
                                 date,
                                 style: TextStyle(
                                   fontFamily: 'Markazi Text',
@@ -171,14 +174,17 @@ class AppointmentCard extends StatelessWidget {
                                   color: BColors.darkGrey,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Icon(
-                                Icons.access_time,
-                                size: 14,
-                                color: BColors.darkGrey,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
+                            ),
+                            const SizedBox(width: 12),
+                            Icon(
+                              Icons.access_time,
+                              size: 14,
+                              color: BColors.darkGrey,
+                            ),
+                            const SizedBox(width: 6),
+                            Transform.translate(
+                              offset: const Offset(0, _dateTimeTextOffsetY),
+                              child: Text(
                                 time,
                                 style: TextStyle(
                                   fontFamily: 'Markazi Text',
@@ -186,8 +192,8 @@ class AppointmentCard extends StatelessWidget {
                                   color: BColors.darkGrey,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -259,7 +265,7 @@ class AppointmentCard extends StatelessWidget {
   Widget _buildJoinButton() {
     final label = actionLabel ?? 'انضمام';
     final color = actionColor ?? BColors.accent;
-    return Container(
+    final child = Container(
       width: _joinButtonWidth,
       height: _joinButtonHeight,
       decoration: BoxDecoration(
@@ -277,6 +283,14 @@ class AppointmentCard extends StatelessWidget {
         ),
       ),
     );
+    if (onActionTap != null) {
+      return GestureDetector(
+        onTap: onActionTap,
+        behavior: HitTestBehavior.opaque,
+        child: child,
+      );
+    }
+    return child;
   }
 }
 

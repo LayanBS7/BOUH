@@ -1,23 +1,33 @@
-import 'package:bouh/View/BookAppointment/BookAppointment.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
+import 'package:bouh/dto/doctorSummaryDto.dart';
+import 'package:bouh/dto/doctorDto.dart';
+import 'package:bouh/services/doctorsService.dart';
+import 'package:bouh/View/BookAppointment/BookAppointment.dart';
 
 class DoctorDetailsView extends StatefulWidget {
-  const DoctorDetailsView({super.key});
+  final DoctorSummaryDto doctor;
+
+  const DoctorDetailsView({super.key, required this.doctor});
 
   @override
   State<DoctorDetailsView> createState() => _DoctorDetailsViewState();
 }
 
 class _DoctorDetailsViewState extends State<DoctorDetailsView> {
-  // 0 = qualifications, 1 = booking
   int tabIndex = 0;
+  Future<DoctorDto>? _doctorDetailsFuture;
 
-  // THIS IS DUMMY (replace later from controller)
-  final String doctorName = "د. علي آل يحيى";
-  final String doctorMajor = "قلق وتوتر";
-  final double rating = 4.5;
-  final int years = 10;
+  @override
+  void initState() {
+    super.initState();
+    print("doctorId in details view = ${widget.doctor.doctorId}");
+    if (widget.doctor.doctorId != null && widget.doctor.doctorId!.isNotEmpty) {
+      _doctorDetailsFuture = DoctorsService.getDoctorDetails(
+        widget.doctor.doctorId!,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,47 +37,58 @@ class _DoctorDetailsViewState extends State<DoctorDetailsView> {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // Scroll content (card starts at top)
-            SingleChildScrollView(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  _DoctorInfoCard(
-                    doctorName: doctorName,
-                    doctorMajor: doctorMajor,
-                    rating: rating,
-                    years: years,
-                    tabIndex: tabIndex,
-                    onTapQualifications: () => setState(() => tabIndex = 0),
-                    onTapBooking: () => setState(() => tabIndex = 1),
-                  ),
+            FutureBuilder<DoctorDto>(
+              future: _doctorDetailsFuture,
+              builder: (context, snapshot) {
+                final doctorName = widget.doctor.name;
+                final doctorMajor = widget.doctor.areaOfKnowledge;
+                final rating = widget.doctor.rating;
 
-                  const SizedBox(height: 18),
+                final years = snapshot.data?.yearsOfExperience ?? 0;
+                final qualifications = snapshot.data?.qualifications ?? [];
 
-                  // Padding فقط للجزء اللي تحت
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    child: Column(
-                      children: [
-                        if (tabIndex == 0) const _QualificationsSection(),
-                        if (tabIndex == 1) const BookingView(),
-                        const SizedBox(height: 18),
-                      ],
-                    ),
+                return SingleChildScrollView(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      _DoctorInfoCard(
+                        doctorName: doctorName,
+                        doctorMajor: doctorMajor,
+                        rating: rating,
+                        years: years,
+                        tabIndex: tabIndex,
+                        onTapQualifications: () => setState(() => tabIndex = 0),
+                        onTapBooking: () => setState(() => tabIndex = 1),
+                      ),
+                      const SizedBox(height: 18),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        child: Column(
+                          children: [
+                            if (tabIndex == 0)
+                              _QualificationsSection(
+                                qualifications: qualifications,
+                              ),
+                            if (tabIndex == 1)
+                              BookingView(
+                                doctorId: widget.doctor.doctorId!,
+                                doctorName: doctorName,
+                              ),
+                            const SizedBox(height: 18),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
-
-            // Back button فوق كل شيء
-            SafeArea(
-              child: Positioned(
-                top: 8,
-                right: 12,
+            Positioned(
+              top: 8,
+              right: 12,
+              child: SafeArea(
                 child: InkWell(
-                  onTap: () => Navigator.pop(
-                    context,
-                  ), //change later connect to the list of doctors page
+                  onTap: () => Navigator.pop(context),
                   child: const Icon(Icons.chevron_left, size: 34),
                 ),
               ),
@@ -79,7 +100,6 @@ class _DoctorDetailsViewState extends State<DoctorDetailsView> {
   }
 }
 
-// Doctor info card
 class _DoctorInfoCard extends StatelessWidget {
   final String doctorName;
   final String doctorMajor;
@@ -115,7 +135,6 @@ class _DoctorInfoCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              // avatar on the right
               Container(
                 width: 70,
                 height: 70,
@@ -124,17 +143,13 @@ class _DoctorInfoCard extends StatelessWidget {
                   color: Colors.grey.shade200,
                   border: Border.all(color: Colors.white, width: 4),
                 ),
-                //IF THERE IS PHOTO REPLACE BY THE PHOTO LATER
                 child: Icon(
                   Icons.person,
                   size: 34,
                   color: Colors.grey.shade600,
                 ),
               ),
-
               const SizedBox(width: 7),
-
-              //name and major
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,129 +174,26 @@ class _DoctorInfoCard extends StatelessWidget {
                   ],
                 ),
               ),
-
-              //rating and years of experince
               Row(
                 children: [
-                  Container(
-                    width: 64,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(9.52),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 12,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 34,
-                          width: 32,
-                          decoration: BoxDecoration(
-                            color: BColors.primary.withOpacity(0.75),
-                            borderRadius: const BorderRadius.only(
-                              bottomLeft: Radius.circular(10),
-                              bottomRight: Radius.circular(10),
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.star_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "4.5", //THIS IS DUMMY DATA
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.black.withOpacity(0.75),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          "التقييم",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black.withOpacity(0.55),
-                          ),
-                        ),
-                      ],
-                    ),
+                  _SmallStatCard(
+                    icon: Icons.star_rounded,
+                    iconBg: BColors.primary.withOpacity(0.75),
+                    value: rating.toStringAsFixed(1),
+                    label: "التقييم",
                   ),
                   const SizedBox(width: 12),
-                  Container(
-                    width: 64,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(9.52),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 12,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 34,
-                          width: 32,
-                          decoration: BoxDecoration(
-                            color: BColors.primary.withOpacity(0.35),
-                            borderRadius: const BorderRadius.only(
-                              bottomLeft: Radius.circular(10),
-                              bottomRight: Radius.circular(10),
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.workspace_premium,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "10", //THIS IS DUMMY
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.black.withOpacity(0.75),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          "سنوات الخبرة",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black.withOpacity(0.55),
-                          ),
-                        ),
-                      ],
-                    ),
+                  _SmallStatCard(
+                    icon: Icons.workspace_premium,
+                    iconBg: BColors.primary.withOpacity(0.35),
+                    value: years.toString(),
+                    label: "سنوات الخبرة",
                   ),
                 ],
               ),
-
-              // name/subtitle
             ],
           ),
-
           const SizedBox(height: 14),
-
-          //Qualifications first, then booking
           Row(
             children: [
               Expanded(
@@ -307,7 +219,74 @@ class _DoctorInfoCard extends StatelessWidget {
   }
 }
 
-// Segment button
+class _SmallStatCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconBg;
+  final String value;
+  final String label;
+
+  const _SmallStatCard({
+    required this.icon,
+    required this.iconBg,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 64,
+      height: 90,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9.52),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            height: 34,
+            width: 32,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(10),
+                bottomRight: Radius.circular(10),
+              ),
+            ),
+            child: Icon(icon, color: Colors.white, size: 18),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: Colors.black.withOpacity(0.75),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: Colors.black.withOpacity(0.55),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SegmentBtn extends StatelessWidget {
   final String text;
   final bool selected;
@@ -358,9 +337,10 @@ class _SegmentBtn extends StatelessWidget {
   }
 }
 
-// Qualifications section
 class _QualificationsSection extends StatelessWidget {
-  const _QualificationsSection();
+  final List<String> qualifications;
+
+  const _QualificationsSection({required this.qualifications});
 
   @override
   Widget build(BuildContext context) {
@@ -379,68 +359,48 @@ class _QualificationsSection extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "المؤهلات",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: Colors.black.withOpacity(0.75),
-            ),
-          ),
-          //THESE ARE DUMMY DATA (CAN BE PARAGRAH OR BULLET POINTS)
-          const SizedBox(height: 10),
-          Text(
-            "نهج علاجي يجمع بين الدقة الطبية والإنصات الحقيقي.\n"
-            "خطة واضحة، متابعة دقيقة، وأدوات عملية تساعد على التحكم بالقلق والتوتر.",
-            style: TextStyle(
-              fontSize: 14.5,
-              height: 1.6,
-              fontWeight: FontWeight.w600,
-              color: Colors.black.withOpacity(0.60),
-            ),
-          ),
-          const SizedBox(height: 14),
-          _bullet("تشخيص شامل وربط الأعراض بالمحفزات اليومية."),
-          _bullet("خطط علاج شخصية: جلسات، تمارين، ومتابعة قابلة للقياس."),
-          _bullet("تثقيف مبسط للمراجع وذويه لرفع الالتزام وتقليل الانتكاس."),
-          _bullet("خبرة في تنظيم المواعيد والمتابعة لضمان أفضل نتيجة."),
-        ],
-      ),
-    );
-  }
-
-  Widget _bullet(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 7),
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: BColors.accent,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
+      child: qualifications.isEmpty
+          ? Text(
+              "لا توجد مؤهلات متاحة حالياً.",
               style: TextStyle(
-                fontSize: 14,
-                height: 1.55,
+                fontSize: 14.5,
+                height: 1.6,
                 fontWeight: FontWeight.w600,
-                color: Colors.black.withOpacity(0.62),
+                color: Colors.black.withOpacity(0.60),
               ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: qualifications
+                  .map(
+                    (q) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            size: 18,
+                            color: BColors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              q,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                height: 1.6,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black.withOpacity(0.60),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
-          ),
-        ],
-      ),
     );
   }
 }

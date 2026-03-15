@@ -1,7 +1,13 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
+import 'package:bouh/View/HomePage/widgets/doctorBottomNav.dart';
+import 'package:bouh/authentication/AuthService.dart';
+import 'package:bouh/View/Login/login_view.dart';
+import 'package:bouh/widgets/confirmation_popup.dart';
+import 'package:bouh/widgets/loading_overlay.dart';
 
 class DoctorProfileView extends StatefulWidget {
   const DoctorProfileView({
@@ -17,6 +23,8 @@ class DoctorProfileView extends StatefulWidget {
     this.defaultAvatarAsset,
     this.onSave,
     this.onLogout,
+    this.currentIndex = 2,
+    this.onTap,
   });
 
   final String? initialEmail;
@@ -29,6 +37,12 @@ class DoctorProfileView extends StatefulWidget {
   final String? initialGender;
 
   final String? defaultAvatarAsset;
+
+  /// Active bottom nav index (2 = profile). Pass when used inside [DoctorNavbar].
+  final int currentIndex;
+
+  /// Called when a bottom nav item is tapped. Pass when used inside [DoctorNavbar].
+  final ValueChanged<int>? onTap;
 
   // TODO(next stage): implement DB update + image upload, then store returned image URL/path
   final Future<void> Function({
@@ -53,6 +67,9 @@ class DoctorProfileView extends StatefulWidget {
 
 class _DoctorProfileViewState extends State<DoctorProfileView> {
   bool _isEditing = false;
+  String? _deleteError;
+  bool _isDeletingAccount = false;
+  Timer? _deleteErrorTimer;
 
   late final TextEditingController _emailCtrl;
   late final TextEditingController _nameCtrl;
@@ -69,7 +86,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
 
   final ImagePicker _picker = ImagePicker();
 
-  final List<String> _specialties = const ['توتر وقلق', 'خوف', 'حزن', 'تفاؤل'];
+  final List<String> _specialties = const ['توتر وقلق', 'غضب', 'حزن', 'تفاؤل'];
   final List<String> _yearsList = const ['1', '2', '3', '4', '5+'];
 
   @override
@@ -93,6 +110,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
 
   @override
   void dispose() {
+    _deleteErrorTimer?.cancel();
     _emailCtrl.dispose();
     _nameCtrl.dispose();
     _ibanCtrl.dispose();
@@ -105,6 +123,71 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
 
   void _toggleEdit() {
     setState(() => _isEditing = !_isEditing);
+  }
+
+  Future<void> _handleLogout() async {
+    await AuthService.instance.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginView()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    final confirmed = await ConfirmationPopup.show(
+      context,
+      title: 'حذف الحساب',
+      message: 'هل أنت متأكد أنك تريد حذف الحساب؟ لا يمكن التراجع عن هذا.',
+      confirmText: 'حذف الحساب',
+      cancelText: 'إلغاء',
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+
+    setState(() => _deleteError = null);
+    setState(() => _isDeletingAccount = true);
+
+    try {
+      await AuthService.instance.deleteAccountOnBackend();
+      if(!mounted) return;
+      await AuthService.instance.signOut();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginView()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _deleteErrorTimer?.cancel();
+      setState(() {
+        _isDeletingAccount = false;
+        _deleteError = e as String;
+      });
+      // Auto-dismiss error so it does not persist.
+      _deleteErrorTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => _deleteError = null);
+        _deleteErrorTimer = null;
+      });
+    }
+  }
+
+  Future<void> _confirmAndLogout() async {
+    final confirmed = await ConfirmationPopup.show(
+      context,
+      title: 'تسجيل الخروج',
+      message: 'هل أنت متأكد أنك تريد تسجيل الخروج؟',
+      confirmText: 'تسجيل الخروج',
+      cancelText: 'إلغاء',
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+
+    if (widget.onLogout != null) {
+      await widget.onLogout!();
+      return;
+    }
+    await _handleLogout();
   }
 
   Future<void> _save() async {
@@ -223,8 +306,15 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: BColors.white,
-        body: SafeArea(
-          child: SingleChildScrollView(
+        body: Stack(
+          children: [
+            SafeArea(
+              child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: widget.onTap != null
+                  ? DoctorBottomNav.barHeight - 50
+                  : 3,
+            ),
             child: Column(
               children: [
                 SizedBox(
@@ -248,12 +338,11 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                         left: 12,
                         child: InkWell(
                           onTap: () async {
-                            if (widget.onLogout != null) {
-                              await widget.onLogout!();
-                            }
+                            await _confirmAndLogout();
                           },
                           child: Row(
                             children: [
+                            const SizedBox(height: 40),
                               Transform(
                                 alignment: Alignment.center,
                                 transform: Matrix4.rotationY(3.141592653589793),
@@ -473,7 +562,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                             )
                           : _genderReadOnly(selected: _gender),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
 
                       if (_isEditing)
                         Center(
@@ -501,7 +590,50 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
                           ),
                         ),
 
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 80),
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 180,
+                              height: 40,
+                              child: ElevatedButton(
+                                onPressed: _isDeletingAccount
+                                    ? null
+                                    : () => _handleDeleteAccount(),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFE4573D),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'حذف الحساب',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_deleteError != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _deleteError!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: BColors.validationError,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -509,12 +641,28 @@ class _DoctorProfileViewState extends State<DoctorProfileView> {
             ),
           ),
         ),
+          if (_isDeletingAccount) BouhLoadingOverlay(),
+        ],
+        ),
+        bottomNavigationBar: widget.onTap != null
+            ? Material(
+                clipBehavior: Clip.none,
+                color: Colors.transparent,
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: DoctorBottomNav(
+                    currentIndex: widget.currentIndex,
+                    onTap: widget.onTap,
+                  ),
+                ),
+              )
+            : null,
       ),
     );
   }
 
   static Widget _label(String text) => Padding(
-    padding: const EdgeInsets.only(top: 14, bottom: 6),
+    padding: const EdgeInsets.only(top: 10, bottom: 4),
     child: Align(
       alignment: Alignment.centerRight,
       child: Text(

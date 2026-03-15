@@ -1,13 +1,25 @@
+import 'dart:async';
+import 'dart:io' show SocketException;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
+import 'package:bouh/dto/caregiverSignupData.dart';
+import 'package:bouh/dto/caregiverDto.dart';
+import 'package:bouh/authentication/AuthService.dart';
+import 'package:bouh/View/AccountCreation/verify_email_view.dart';
+import 'package:bouh/services/childrenService.dart';
+import 'package:bouh/widgets/loading_overlay.dart';
 
 class CaregiverAccountCreationStep2 extends StatefulWidget {
-  const CaregiverAccountCreationStep2({super.key, this.onSubmitChildren});
+  const CaregiverAccountCreationStep2({
+    super.key,
+    this.signupData,
+    this.onSubmitChildren,
+  });
 
-  /// Next stage hook:
-  /// - Connect to backend/Firebase from here.
-  /// - `children` will contain all children data.
-  /// - Return `Future<void>` to allow loading state later (without changing UI now).
+  final CaregiverSignupData? signupData;
+
+  /// Optional hook when not using [signupData]: custom submit of children payload.
   final Future<void> Function(List<Map<String, String>> children)?
   onSubmitChildren;
 
@@ -37,8 +49,49 @@ class _CaregiverAccountCreationStep2State
   static const int _maxChildren = 5;
 
   final List<_ChildFormData> _childrenForms = [_ChildFormData()];
+  bool _isSubmitting = false;
+  String? _submitError;
 
-  List<String> get _days => List.generate(31, (i) => '${i + 1}');
+  /// Number of days in the given month/year (leap-year aware).
+  int _daysInMonth(int year, int month) {
+    return DateTime(year, month + 1, 0).day;
+  }
+
+  /// Day options 1..maxDay for the given month/year. If month or year is missing, returns 1..31.
+  List<String> _daysFor(int? month, int? year) {
+    if (month == null || year == null) {
+      return List.generate(31, (i) => '${i + 1}');
+    }
+    final n = _daysInMonth(year, month);
+    return List.generate(n, (i) => '${i + 1}');
+  }
+
+  /// If the child's selected day exceeds the last day of the selected month/year, clamp it.
+  void _clampDayIfNeeded(_ChildFormData child) {
+    final m = child.month != null ? int.tryParse(child.month!) : null;
+    final y = child.year != null ? int.tryParse(child.year!) : null;
+    if (m == null || y == null || child.day == null) return;
+    final maxDay = _daysInMonth(y, m);
+    final d = int.tryParse(child.day!);
+    if (d != null && d > maxDay) {
+      child.day = '$maxDay';
+    }
+  }
+
+  /// Validates that the selected day is valid for the selected month/year.
+  /// Returns an error message if invalid, null if valid or if month/year/day not yet selected.
+  String? _getDateValidationError(_ChildFormData child) {
+    final m = child.month != null ? int.tryParse(child.month!) : null;
+    final y = child.year != null ? int.tryParse(child.year!) : null;
+    final d = child.day != null ? int.tryParse(child.day!) : null;
+    if (m == null || y == null || d == null) return null;
+    final maxDay = _daysInMonth(y, m);
+    if (d < 1 || d > maxDay) {
+      return 'اختر يوماً صحيحاً لهذا الشهر (١–$maxDay)';
+    }
+    return null;
+  }
+
   List<String> get _months => List.generate(12, (i) => '${i + 1}');
   List<String> get _years {
     final now = DateTime.now().year;
@@ -61,6 +114,18 @@ class _CaregiverAccountCreationStep2State
         _childrenForms.every((c) => c.isComplete);
   }
 
+  // ---------------------------------------------------------------------------
+  // Validation helper: allow Arabic or English letters + spaces for children names.
+  // ---------------------------------------------------------------------------
+  bool _isValidName(String value) {
+    final v = value.trim();
+    if (v.isEmpty) return false;
+    final nameRegex = RegExp(
+      r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FFa-zA-Z\s]+$',
+    );
+    return nameRegex.hasMatch(v);
+  }
+
   bool _canShowAddButton() {
     final last = _childrenForms.last;
     return last.isComplete && _childrenForms.length < _maxChildren;
@@ -79,27 +144,107 @@ class _CaregiverAccountCreationStep2State
   }
 
   Future<void> _submitAll() async {
-    // No UI messages/snackbars here by request.
-    // Button remains disabled until all children are complete.
     if (!_allChildrenComplete()) return;
 
-    final childrenPayload = _childrenForms
-        .map(
-          (c) => <String, String>{
-            'name': c.nameController.text.trim(),
-            'gender': c.gender,
-            'dob': '${c.day}-${c.month}-${c.year}',
-          },
-        )
-        .toList();
+    final signupData = widget.signupData;
+    if (signupData == null) return;
 
-    if (widget.onSubmitChildren != null) {
-      await widget.onSubmitChildren!(childrenPayload);
+    // Enforce valid child names (Arabic or English letters)
+    final hasInvalidChildName = _childrenForms.any(
+      (c) => !_isValidName(c.nameController.text),
+    );
+    if (hasInvalidChildName) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('يرجى إدخال أسماء الأطفال بالأحرف العربية أو الإنجليزية فقط'),
+          ),
+        );
+      }
       return;
     }
 
-    // Next stage default behavior:
-    // Implement navigation to the next screen or call repository/service here.
+    // Validate date: day must be valid for the selected month/year
+    for (final c in _childrenForms) {
+      final dateErr = _getDateValidationError(c);
+      if (dateErr != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(dateErr)),
+          );
+        }
+        return;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isSubmitting = true;
+        _submitError = null;
+      });
+    }
+
+    try {
+      // 1) Firebase account creation (sets AuthSession.idToken + userId internally)
+      final caregiverDto = CaregiverDto(
+        caregiverId: '',
+        name: signupData.caregiverName,
+        email: signupData.email,
+        children: const [], // children NOT sent here anymore
+      );
+
+      final user = await AuthService.instance.createCaregiverAccount(
+        caregiverDto: caregiverDto,
+        password: signupData.password,
+      );
+
+      // 2) Save children via Backend APIs (requires Bearer token موجود في AuthSession)
+      final childrenService = ChildrenService();
+      final caregiverId = user.uid;
+
+      for (final c in _childrenForms) {
+        final day = (c.day ?? '').padLeft(2, '0');
+        final month = (c.month ?? '').padLeft(2, '0');
+        final year = c.year ?? '';
+        final dateOfBirth = '$year-$month-$day';
+
+        await childrenService.addChild(
+          caregiverId: caregiverId,
+          name: c.nameController.text.trim(),
+          dateOfBirth: dateOfBirth,
+          gender: c.gender,
+        );
+      }
+
+      // 3) Go to verify email screen
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const VerifyEmailView()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      final String message;
+      if (e is FirebaseAuthException && e.code == 'email-already-in-use') {
+        message = 'البريد الإلكتروني مستخدم بالفعل بحساب آخر.';
+      } else if (e is SocketException || e is TimeoutException) {
+        message =
+            'الخادم لا يستجيب أو لا يوجد اتصال. تحقق من الإنترنت وحاول مرة أخرى.';
+      } else {
+        message = 'تعذر إنشاء الحساب أو حفظ بيانات الأطفال. حاول مرة أخرى.';
+      }
+
+      setState(() {
+        _isSubmitting = false;
+        _submitError = message;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   InputDecoration _inputDecoration() {
@@ -120,7 +265,7 @@ class _CaregiverAccountCreationStep2State
 
   @override
   Widget build(BuildContext context) {
-    final isCreateEnabled = _allChildrenComplete();
+    final isCreateEnabled = _allChildrenComplete() && !_isSubmitting;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -141,15 +286,9 @@ class _CaregiverAccountCreationStep2State
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Image.asset(
-                              'assets/images/login_header.png',
-                              width: 60,
-                              fit: BoxFit.contain,
-                            ),
-                            const SizedBox(width: 35),
                             const Expanded(
                               child: Text(
-                                'للاستمرار , يجب ادخال طفل واحد كحد ادنى',
+                                ' أضف طفلاً واحداً على الأقل للمتابعة',
                                 textAlign: TextAlign.right,
                                 style: TextStyle(
                                   fontSize: 16,
@@ -158,10 +297,16 @@ class _CaregiverAccountCreationStep2State
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 35),
+                            Image.asset(
+                              'assets/images/login_header.png',
+                              width: 60,
+                              fit: BoxFit.contain,
+                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 28),
 
                       ListView.builder(
                         shrinkWrap: true,
@@ -193,7 +338,7 @@ class _CaregiverAccountCreationStep2State
                                 const Align(
                                   alignment: Alignment.centerRight,
                                   child: Text(
-                                    'اسم الطفل',
+                                    'اسم الطفل *',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: BColors.darkGrey,
@@ -213,7 +358,7 @@ class _CaregiverAccountCreationStep2State
                                 const Align(
                                   alignment: Alignment.centerRight,
                                   child: Text(
-                                    'جنس الطفل',
+                                    'جنس الطفل *',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: BColors.darkGrey,
@@ -231,7 +376,7 @@ class _CaregiverAccountCreationStep2State
                                 const Align(
                                   alignment: Alignment.centerRight,
                                   child: Text(
-                                    'تاريخ الميلاد',
+                                    'تاريخ الميلاد *',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: BColors.darkGrey,
@@ -246,7 +391,14 @@ class _CaregiverAccountCreationStep2State
                                       child: _DropdownBox(
                                         hint: 'يوم',
                                         value: child.day,
-                                        items: _days,
+                                        items: _daysFor(
+                                          child.month != null
+                                              ? int.tryParse(child.month!)
+                                              : null,
+                                          child.year != null
+                                              ? int.tryParse(child.year!)
+                                              : null,
+                                        ),
                                         onChanged: (v) =>
                                             setState(() => child.day = v),
                                       ),
@@ -257,8 +409,12 @@ class _CaregiverAccountCreationStep2State
                                         hint: 'شهر',
                                         value: child.month,
                                         items: _months,
-                                        onChanged: (v) =>
-                                            setState(() => child.month = v),
+                                        onChanged: (v) {
+                                          setState(() {
+                                            child.month = v;
+                                            _clampDayIfNeeded(child);
+                                          });
+                                        },
                                       ),
                                     ),
                                     const SizedBox(width: 10),
@@ -267,12 +423,30 @@ class _CaregiverAccountCreationStep2State
                                         hint: 'سنة',
                                         value: child.year,
                                         items: _years,
-                                        onChanged: (v) =>
-                                            setState(() => child.year = v),
+                                        onChanged: (v) {
+                                          setState(() {
+                                            child.year = v;
+                                            _clampDayIfNeeded(child);
+                                          });
+                                        },
                                       ),
                                     ),
                                   ],
                                 ),
+                                if (_getDateValidationError(child) != null) ...[
+                                  const SizedBox(height: 6),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      _getDateValidationError(child)!,
+                                      style: const TextStyle(
+                                        color: BColors.validationError,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
 
                                 if (index != _childrenForms.length - 1) ...[
                                   const SizedBox(height: 18),
@@ -340,7 +514,18 @@ class _CaregiverAccountCreationStep2State
                           ),
                         ),
                       ),
-
+                      if (_submitError != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          _submitError!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: BColors.validationError,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                       if (_childrenForms.length == 1) ...[
                         const SizedBox(height: 24),
                         const Text(
@@ -360,9 +545,11 @@ class _CaregiverAccountCreationStep2State
                 ),
               ),
 
+              if (_isSubmitting) const BouhLoadingOverlay(),
+
               Positioned(
-                top: -10,
-                right: 30,
+                top: 8,
+                right: 16,
                 child: IconButton(
                   icon: const Icon(
                     Icons.arrow_back_ios_new_rounded,
@@ -446,7 +633,7 @@ class _SegButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: selected ? BColors.textDarkestBlue : BColors.darkGrey,
+            color: selected ? Colors.white : BColors.darkGrey,
           ),
         ),
       ),

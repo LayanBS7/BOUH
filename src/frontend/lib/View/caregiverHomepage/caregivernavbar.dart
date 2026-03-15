@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'caregiverHomepage.dart';
+import 'package:bouh/View/caregiverHomepage/caregiverHomepage.dart';
 import 'package:bouh/View/viewAppointments/appointmentspage.dart';
 import 'package:bouh/View/viewAppointments/bookedAppointmentsUpcoming.dart';
 import 'package:bouh/View/viewAppointments/bookedAppointmentsPrevious.dart';
 import 'package:bouh/View/DrawingAnalysis/RequestAnalysisPage.dart';
 import 'package:bouh/View/Profile/CaregiverProfile.dart';
+import 'package:bouh/authentication/AuthSession.dart';
 
 /// Shell that holds the caregiver bottom nav index and switches between
 /// home (0), drawings (1), appointments (2), and profile (3).
@@ -18,7 +19,11 @@ class CaregiverNavbar extends StatefulWidget {
 class _CaregiverNavbarState extends State<CaregiverNavbar> {
   int _currentIndex = 0;
 
+  // Key to access caregiver homepage state for refresh on re-tap.
+  final GlobalKey<CaregiverHomepageState> _homeKey = GlobalKey();
+
   void _onTap(int index) {
+    if (index == _currentIndex) return; // already on this tab
     setState(() => _currentIndex = index);
   }
 
@@ -30,7 +35,7 @@ class _CaregiverNavbarState extends State<CaregiverNavbar> {
       child: IndexedStack(
         index: stackIndex,
         children: [
-          CaregiverHomepage(currentIndex: _currentIndex, onTap: _onTap),
+          CaregiverHomepage(key: _homeKey, currentIndex: _currentIndex, onTap: _onTap),
           RequestAnalysisPage(currentIndex: _currentIndex, onTap: _onTap),
           _AppointmentsTabContent(currentIndex: _currentIndex, onTap: _onTap),
           CaregiverAccountView(currentIndex: _currentIndex, onTap: _onTap),
@@ -101,16 +106,21 @@ class _BookedTabContentState extends State<_BookedTabContent> {
 
   @override
   Widget build(BuildContext context) {
+    final AuthSession _session = AuthSession.instance;
+    final String? caregiverId = _session.userId;
+
     return IndexedStack(
       index: _bookedSubIndex,
       children: [
         BookedAppointmentsUpcoming(
+          caregiverId: caregiverId,
           currentIndex: widget.currentIndex,
           onTap: widget.onTap,
           onSwitchToAvailable: widget.onSwitchToAvailable,
           onSwitchToPrevious: () => setState(() => _bookedSubIndex = 1),
         ),
         BookedAppointmentsPrevious(
+          caregiverId: caregiverId,
           currentIndex: widget.currentIndex,
           onTap: widget.onTap,
           onSwitchToAvailable: widget.onSwitchToAvailable,

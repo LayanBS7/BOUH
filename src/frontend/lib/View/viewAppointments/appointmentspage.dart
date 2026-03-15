@@ -1,14 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../theme/base_themes/colors.dart';
+
+import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/View/caregiverHomepage/widgets/suggestedDoctorCard.dart';
 import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
+import 'package:bouh/View/BookAppointment/DoctorDetails.dart';
 
-/// Appointments screen
-///
-/// Shows: title, segmented control (متاحة / محجوزة), search bar, filter button,
-/// and a scrollable list of [SuggestedDoctorCard]. Uses existing bottom nav
-/// with [currentIndex] and [onTap] so the المواعيد tab is active when shown
-/// from [CaregiverNavbar].
+import 'package:bouh/dto/doctorSummaryDto.dart';
+import 'package:bouh/services/doctorsService.dart';
+
 class AppointmentsPage extends StatefulWidget {
   const AppointmentsPage({
     super.key,
@@ -17,13 +17,8 @@ class AppointmentsPage extends StatefulWidget {
     this.onSwitchToBooked,
   });
 
-  /// Active bottom nav index (2 = المواعيد). Pass from shell.
   final int currentIndex;
-
-  /// Called when a bottom nav item is tapped. Pass from shell.
   final ValueChanged<int>? onTap;
-
-  /// Called when user taps "محجوزة" to switch to booked appointments. Optional.
   final VoidCallback? onSwitchToBooked;
 
   @override
@@ -33,13 +28,13 @@ class AppointmentsPage extends StatefulWidget {
 class _AppointmentsPageState extends State<AppointmentsPage> {
   final TextEditingController _searchController = TextEditingController();
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  List<DoctorSummaryDto> _allDoctors = [];
+  List<DoctorSummaryDto> _filteredDoctors = [];
 
-  // --- Layout (match design.json & reference) ---
+  bool _isLoading = false;
+  String? _error;
+  Timer? _debounce;
+
   static const double _titleTopPadding = 24;
   static const double _titleBottomPadding = 24;
   static const double _tabHeight = 44;
@@ -52,13 +47,75 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   static const double _sectionGap = 24;
   static const double _cardGap = 16;
 
-  /// Tab container background (inactive area).
   static const Color _tabContainerBg = Color(0xFFF0F2F4);
   static const Color _tabActiveBg = Color(0xFFFFFFFF);
   static const Color _tabActiveColor = Color(0xFF2C3E50);
   static const Color _tabInactiveColor = Color(0xFF7D8A96);
   static const Color _searchBorderColor = Color(0xFFE8EBED);
   static const Color _filterButtonBg = Color(0xFF5B8FA3);
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+    _loadDoctorsForCaregiver();
+  }
+
+  Future<void> _loadDoctorsForCaregiver() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final results = await DoctorsService.getDoctorsForCaregiver();
+      setState(() {
+        _allDoctors = results;
+        _filteredDoctors = results;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'حدث خطأ في تحميل الأطباء';
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      final q = _searchController.text.trim().toLowerCase();
+
+      setState(() {
+        if (q.isEmpty) {
+          _filteredDoctors = _allDoctors;
+        } else {
+          _filteredDoctors = _allDoctors.where((doctor) {
+            final name = doctor.name.toLowerCase();
+            final specialty = doctor.areaOfKnowledge.toLowerCase();
+            return name.contains(q) || specialty.contains(q);
+          }).toList();
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _openDoctorDetails(DoctorSummaryDto doctor) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => DoctorDetailsView(doctor: doctor)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +235,6 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   }
 
   Widget _buildSearchAndFilter() {
-    // RTL: first child = right. Filter on RIGHT, search on LEFT.
     return Row(
       textDirection: TextDirection.rtl,
       children: [
@@ -195,58 +251,42 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
         Expanded(
           child: SizedBox(
             height: _searchHeight,
-            child: Theme(
-              data: Theme.of(context).copyWith(
-                inputDecorationTheme: InputDecorationTheme(
-                  focusColor: Colors.transparent,
-                  hoverColor: Colors.transparent,
+            child: TextField(
+              controller: _searchController,
+              textDirection: TextDirection.rtl,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: BColors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_searchRadius),
+                  borderSide: const BorderSide(color: _searchBorderColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_searchRadius),
+                  borderSide: const BorderSide(color: _searchBorderColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_searchRadius),
+                  borderSide: const BorderSide(color: _searchBorderColor),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  size: 22,
+                  color: _tabInactiveColor,
+                ),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 44,
+                  minHeight: 44,
                 ),
               ),
-              child: TextField(
-                controller: _searchController,
-                textDirection: TextDirection.rtl,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: BColors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(_searchRadius),
-                    borderSide: const BorderSide(color: _searchBorderColor),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(_searchRadius),
-                    borderSide: const BorderSide(color: _searchBorderColor),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(_searchRadius),
-                    borderSide: const BorderSide(color: _searchBorderColor),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(_searchRadius),
-                    borderSide: const BorderSide(color: _searchBorderColor),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(_searchRadius),
-                    borderSide: const BorderSide(color: _searchBorderColor),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    size: 22,
-                    color: _tabInactiveColor,
-                  ),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 44,
-                    minHeight: 44,
-                  ),
-                ),
-                style: TextStyle(
-                  fontFamily: 'Markazi Text',
-                  fontSize: 14,
-                  color: _tabActiveColor,
-                ),
+              style: TextStyle(
+                fontFamily: 'Markazi Text',
+                fontSize: 14,
+                color: _tabActiveColor,
               ),
             ),
           ),
@@ -256,39 +296,37 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
   }
 
   Widget _buildDoctorList() {
-    const mockDoctors = [
-      (
-        name: 'د. علي آل يحيى',
-        specialty: 'خبير في علاج القلق والتوتر',
-        rating: 5,
-      ),
-      (
-        name: 'د. عبد العزيز الناصر',
-        specialty: 'خبير في التعامل مع نوبات الغضب',
-        rating: 4,
-      ),
-      (
-        name: 'د. أحمد القحطاني',
-        specialty: 'خبير في التعامل مع الصدمات',
-        rating: 5,
-      ),
-      (
-        name: 'د. موسى السبيعي',
-        specialty: 'خبير في التعامل مع العزلة',
-        rating: 4,
-      ),
-    ];
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Text(_error!, style: const TextStyle(color: Colors.red)),
+      );
+    }
+
+    if (_filteredDoctors.isEmpty) {
+      final q = _searchController.text.trim();
+      if (q.isEmpty) {
+        return const Center(child: Text("لا يوجد أطباء حالياً"));
+      }
+      return const Center(child: Text("لا توجد نتائج مطابقة"));
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (int i = 0; i < mockDoctors.length; i++) ...[
-          SuggestedDoctorCard(
-            name: mockDoctors[i].name,
-            specialty: mockDoctors[i].specialty,
-            rating: mockDoctors[i].rating,
+        for (int i = 0; i < _filteredDoctors.length; i++) ...[
+          InkWell(
+            onTap: () => _openDoctorDetails(_filteredDoctors[i]),
+            child: SuggestedDoctorCard(
+              name: _filteredDoctors[i].name,
+              specialty: _filteredDoctors[i].areaOfKnowledge,
+              rating: _filteredDoctors[i].rating.toInt(),
+            ),
           ),
-          if (i < mockDoctors.length - 1) const SizedBox(height: _cardGap),
+          if (i < _filteredDoctors.length - 1) const SizedBox(height: _cardGap),
         ],
       ],
     );
