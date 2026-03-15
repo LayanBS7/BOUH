@@ -88,3 +88,50 @@ export const sendCancellationNotification = onRequest(async (req, res) => {
     res.status(500).json({ success: false, reason: "send_failed" });
   }
 });
+
+export const sendBookingNotification = onRequest(async (req, res) => {
+    if (req.method !== "POST") {
+        return res.status(405).send("Method Not Allowed");
+    }
+
+    const { targetUserId, appointmentStartTime } = req.body;
+
+    if (!targetUserId) {
+        console.log("Missing required fields in request body.");
+        res.status(400).send("Missing required fields");
+        return;
+    }
+
+    try {
+        const userDoc = await db.collection("doctors")
+            .doc(targetUserId)
+            .get();
+
+        if (!userDoc.exists) {
+            return res.status(404).send("User not found");
+        }
+
+        const token = userDoc.exists ? userDoc.data().fcmToken : null;
+        if (!token) {
+              console.log(`No FCM token found for doctor ${targetUserId}, skipping.`);
+              res.status(200).json({ success: false, reason: "no_fcm_token" });
+              return;        
+            }
+
+        const timeLabel = appointmentStartTime || "";
+        await messaging.send({
+            token,
+            notification: {
+                title: "موعد جديد قريب",
+                body: timeLabel ? `تم حجز موعد جديد الساعة ${timeLabel}` : "تم حجز موعد جديد",
+            },
+        });
+      
+        console.log(`Booking notification sent to doctor ${targetUserId}`);
+        return res.status(200).send("Notification sent");
+
+    } catch (error) {
+        console.error("sendBookingNotification error:", error);
+        return res.status(500).send("Internal error: " + error.message);
+    }
+});
