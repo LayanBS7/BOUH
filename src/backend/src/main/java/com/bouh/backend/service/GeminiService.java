@@ -2,7 +2,12 @@ package com.bouh.backend.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import jakarta.annotation.PostConstruct;
 import okhttp3.*;
+
+import org.apache.hc.core5.http2.frame.Frame;
+import org.aspectj.lang.annotation.Before;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -13,14 +18,14 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * GeminiService — Internal service responsible for communicating with the
- * Google Gemini 1.5 Pro API.
+ * Google Gemini 2.5 API.
  *
  * This service is a step in the drawing analysis pipeline. It receives a feeling string,
  * sends it to Gemini with a structured prompt, and returns the AI-generated
  * analysis as a plain string.
  *
  * Protocol: HTTP/2 (via OkHttp)
- * Model: gemini-1.5-pro —> chosen for its strong emotional reasoning capability.
+ * Model: gemini-2.5 —> chosen for its strong emotional reasoning capability.
  */
 @Service
 public class GeminiService {
@@ -37,36 +42,54 @@ public class GeminiService {
     /**
      * Full Gemini endpoint URL injected from application.properties.
      * Key: gemini.api.url
-     * Points to the generateContent endpoint for gemini-2.5-
+     * Points to the generateContent endpoint for gemini-2.5
      */
     @Value("${gemini.api.url}")
     private String apiUrl;
 
-    // Gemini System Instructions.
-    private static final String SYSTEM_INSTRUCTION =
-            "أنتِ أخصائية في علم نفس الطفل، تتمتعين بخبرة في تفسير مشاعر الأطفال بطريقة دافئة وداعمة.\n"
-                    + "مهمتك هي مساعدة مقدمي الرعاية (الوالدين أو المربين) على فهم مشاعر الطفل بناءً على تحليل رسوماته، وذلك بتقديم تفسير عاطفي لطيف يتبعه نصيحة عملية واحدة.\n"
-                    + "التزمي بالقواعد التالية بصرامة:\n"
-                    + "استخدمي لغة عربية فصحى مبسّطة، دافئة، ومطمئنة.\n"
-                    + "لا تقدّمي أي تشخيص طبي أو نفسي أبدًا.\n"
-                    + "لا تستخدمي مصطلحات تقنية أو أكاديمية معقدة.\n"
-                    + "لا تُصدري أي أحكام على الطفل أو على مقدّم الرعاية.\n"
-                    + "لا تذكري أنكِ ذكاء اصطناعي أو نموذج لغوي.\n"
-                    + "قدّمي جميع التفسيرات العاطفية كاحتمالات وليس كحقائق مؤكدة. استخدمي صياغات مثل \"قد يكون الطفل يشعر بـ...\" أو \"ربما يعبّر عن...\" بدلاً من \"الطفل يشعر بـ...\".\n"
-                    + "اكتبي الرد كفقرة واحدة متصلة بدون ترقيم أو عناوين فرعية.\n"
-                    + "لا تقدمي نصائح إلا إذا كانت تستند إلى معرفة موثوقة ومقبولة على نطاق واسع في علم نفس الطفل، وتجنبي التوصيات غير الموثوقة أو غير المدعومة.\n"
-                    + "اجعلي الرد قصيرًا: من ٣ إلى ٥ جمل كحد أقصى.";
-
-    // Gemini user prompt template. Placeholder {emotion} is replaced with the detected emotion before sending.
-    private static final String USER_PROMPT_TEMPLATE =
-            "تم تحليل رسمة طفل باستخدام نموذج تعلّم آلي، وتم تصنيف المشاعر المُعبَّر عنها في الرسمة على أنها: {emotion}\n"
-                    + "بناءً على هذه المشاعر المكتشفة، قدّمي لمقدّم الرعاية تفسيرًا عاطفيًا قصيرًا ولطيفًا لما قد يشعر به الطفل، متبوعًا بنصيحة عملية وداعمة واحدة للتعامل مع هذا الشعور.";
+// Gemini user prompt template. Placeholder {emotion} is replaced with the detected emotion before sending.
+private static final String USER_PROMPT_TEMPLATE =
+"A child's drawing was analyzed using a machine learning model,  and the emotions expressed in the drawing were classified as: {emotion}\n"
++ "Before writing your response, generate knowledge internally about the following:\n"
++"What does the emotion {emotion} typically indicate about a child's inner experience, and what psychological need might it reflect?\n"
++"How might this emotion manifest in a child's behavior, drawings, or expressions in ways a caregiver might observe?\n"
++"What does child psychology specifically recommend as the most effective caregiver response to this exact emotion? Suggest a concrete, creative, and child-centered activity or interaction that directly responds to this emotional state — something specific and memorable, not generic.\n"
++"Write only the knowledge now. Do not write the caregiver response yet.\n"
++"Then using the knowledge, provide the caregiver with a short and gentle emotional interpretation of what the child may be feeling, followed by one supportive and practical piece of advice for responding to this emotion.\n"
++"Rules:\n"
+        + "You have no access to the drawing itself — you only receive the emotion label detected by the machine learning model. Never describe, reference, or make assumptions about the drawing's colors, shapes, lines, or visual content. Your interpretation must be based solely on the emotion label provided.\n"
+        + "Always state the detected emotion clearly and explicitly in the response. Never replace it with vague or general expressions such as \"مشاعر قوية\" or \"بعض الضيق\".\n"
+        + "Always link the detected emotion to the drawing. Use phrases such as \"من خلال رسمته\" or \"رسمة طفلك تعبّر عن\" or \"يبدو من رسمته أن\".\n"
+        + "Strictly address only the emotion provided in the detected classification. Do not mention, mix, or reference any other emotion in your response. Each classification represents one independent and distinct emotion. For example: الخوف is not القلق, and الغضب is not الحزن. If the classification is الخوف, speak only about الخوف and never use words like قلق, توتر, ضيق, or any other emotion.\n"
+        + "Address the caregiver directly and warmly using second person singular (أنت) as a neutral default. For example: \"يمكنك أن تجلس معه\" or \"حاول أن\".\n"
+        + "Speak directly without titles or forms of address. \n"
+        + "Frame all emotional interpretations as possibilities, not certainties. Use phrasing such as \"قد يكون الطفل يشعر بـ...\" or \"ربما يعبّر عن...\" rather than \"الطفل يشعر بـ...\".\n"
+        + "Never open your response with a greeting, title, or address. Begin directly with the content.\n"
+        + "Use simple, warm, and reassuring Modern Standard Arabic (العربية الفصحى المبسطة).\n"
+        + "In every response, choose a different and fresh angle for the practical advice. For example, the advice may focus on conversation, play, drawing, reading, routine, nature, or other approaches. Never repeat the same type of advice if the same emotion is given more than once. Be creative in suggesting varied and different approaches each time.\n"
+        + "In every response, choose a different and unexpected activity for the practical advice. Do not default to suggesting the same common activities. Vary widely between activities that are completely different from each other.\n"
+        + "Never use any formatting symbols in the response such as stars, dashes, or any other symbols. Write plain text only.\n"
+        + "Never provide any medical or psychological diagnosis.\n"
+        + "Never use complex technical or academic terminology.\n"
+        + "Never pass judgment on the child or the caregiver.\n"
+        + "Never identify yourself as an AI or a language model.\n"
+        + "Write the response as one continuous paragraph with no numbering or subheadings.\n"
+        + "Never provide advice unless it is grounded in reliable and widely accepted knowledge from trusted sources in child psychology, and avoid unreliable or unsupported recommendations.\n"
+        + "Never suggest activities related to music or singing.\n"
+        + "Maintain a calm and warm tone without exaggeration. Never use exclamatory or overly emotional expressions.\n"
+        + "Never recommend any activity that involves hitting, punching, screaming, throwing objects, or any form of violent physical release. Focus only on advice that helps the child understand their feelings and express them through words or calm and positive activities.\n"
+        + "Never suggest or reference any activity, metaphor, or language related to food, drinks, eating, cooking, or anything edible in any part of your response.\n"
+        + "Never use the word 'التميمة' or 'التميمه' or any reference to amulets or charms in your response.\n"
++ "Ensure that all advice and content strictly aligns with Islamic values and principles. Never suggest, imply, or reference anything that contradicts Islamic teachings.\n"
+        + "Keep the response short: 3 to 5 sentences maximum.\n"
+    +"Final output:/n"
+    +"Provide only the final response paragraph to the caregiver. Do not include the knowledge or any internal reasoning in your output.";
 
     // Gemini generation options.
     // Controls how creative the answer is (higher = more variety).
-    private static final double TEMPERATURE = 1.0;
+    private static final double TEMPERATURE = 1.3;
     // Limits how long Gemini can reply.
-    private static final int MAX_OUTPUT_TOKENS = 800;
+    private static final int MAX_OUTPUT_TOKENS = 25000;
 
     // HTTP Client 
 
@@ -184,11 +207,7 @@ public class GeminiService {
      * @throws JsonProcessingException if Jackson fails to serialize the map 
      */
     private String buildRequestBody(String userPrompt) throws JsonProcessingException {
-        // System instruction message.
-        Map<String, Object> systemInstructionPart = Map.of("text", SYSTEM_INSTRUCTION);
-        Map<String, Object> systemInstructionMap = Map.of("parts", List.of(systemInstructionPart));
-
-        // User prompt message.
+        // prompt message.
         Map<String, Object> userTextPart = Map.of("text", userPrompt);
         Map<String, Object> userContent = Map.of(
                 "role",
@@ -207,8 +226,6 @@ public class GeminiService {
 
         // contents = user prompt message, config = systemInstruction + generationConfig
         Map<String, Object> requestMap = Map.of(
-                "systemInstruction",
-                systemInstructionMap,
                 "contents",
                 List.of(userContent),
                 "generationConfig",
@@ -224,9 +241,12 @@ public class GeminiService {
      * @param emotion The emotion detected from the drawing analysis model.
      * @return A ready-to-send user prompt.
      */
+
     private String buildUserPrompt(String emotion) {
-        return USER_PROMPT_TEMPLATE.replace("{emotion}", emotion == null ? "" : emotion);
-    }
+
+        return USER_PROMPT_TEMPLATE
+                .replace("{emotion}", emotion == null ? "" : emotion);
+                }
 
     /**
      * Parses the Gemini API JSON response and extracts the generated text.
