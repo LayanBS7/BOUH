@@ -23,6 +23,7 @@ public class GrpcConfig {
     @Bean
     public ManagedChannel channel(@Value("${triton.host}") String host) {
         return ManagedChannelBuilder
+                .forTarget(host)
                 .keepAliveTime(30, TimeUnit.SECONDS)
                 .keepAliveWithoutCalls(true)
                 .build();
