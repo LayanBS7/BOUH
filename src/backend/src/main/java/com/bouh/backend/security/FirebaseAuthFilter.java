@@ -21,12 +21,11 @@ import java.util.List;
 @Component // Registers this filter as a Spring-managed component
 public class FirebaseAuthFilter extends OncePerRequestFilter {
 
-
     // remove this (after testing)
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.startsWith("/api/gemini/");
+        return path.startsWith("/api/classification/");
     }
 
     /**
