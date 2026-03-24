@@ -410,6 +410,8 @@ public class AppointmentRepo {
         dto.setMeetingLink(getString(doc, "meetingLink"));
         dto.setAmount(doc.getLong("amount"));
         dto.setPaymentIntentId(getString(doc, "paymentIntentId"));
+        dto.setRated(doc.getBoolean("rated")); //Rating
+
         return dto;
     }
 
