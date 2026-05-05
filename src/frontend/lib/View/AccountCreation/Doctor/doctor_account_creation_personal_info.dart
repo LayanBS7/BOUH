@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
-import 'package:bouh/utils/profile_field_validation.dart';
+import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:bouh/dto/doctorSignupData.dart';
@@ -46,6 +46,10 @@ class _DoctorAccountCreationStep1State
   bool _passwordTouched = false;
   bool _confirmTouched = false;
   bool _nameTouched = false;
+
+  /// When true, email validator runs even if the email field still has focus (full-form submit).
+  bool _runningFormValidation = false;
+
   /// When true, password is hidden (same convention as caregiver signup / login).
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -92,11 +96,13 @@ class _DoctorAccountCreationStep1State
   }
 
   void _onEmailFocusChange() {
-    if (!_emailFocusNode.hasFocus) {
-      _emailTouched = true;
+    if (_emailFocusNode.hasFocus) {
       _emailFieldKey.currentState?.validate();
-      if (mounted) setState(() {});
+      return;
     }
+    _emailTouched = true;
+    _emailFieldKey.currentState?.validate();
+    if (mounted) setState(() {});
   }
 
   void _onPasswordFocusChange() {
@@ -118,6 +124,10 @@ class _DoctorAccountCreationStep1State
   void _onNameFocusChange() {
     if (!_nameFocusNode.hasFocus) {
       _nameTouched = true;
+      ProfileFieldValidation.syncTextControllerToExactText(
+        _nameCtrl,
+        _normalizedSignupFullName(),
+      );
       _nameFieldKey.currentState?.validate();
       if (mounted) setState(() {});
     }
@@ -262,6 +272,40 @@ class _DoctorAccountCreationStep1State
     print('[DoctorReg Step1] _pickImage: _profileImage set from gallery');
   }
 
+  void _clearProfileImage() {
+    setState(() {
+      _profileImage = null;
+      _profileImagePath = null;
+    });
+  }
+
+  /// Same circular action style as [ChildrenManagementView] child cards.
+  Widget _circleProfileImageAction({
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onTap,
+    String? tooltip,
+  }) {
+    final ink = InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE9EEF3),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black.withOpacity(0.08)),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+    );
+    if (tooltip != null && tooltip.isNotEmpty) {
+      return Tooltip(message: tooltip, child: ink);
+    }
+    return ink;
+  }
+
   Future<bool> _ensureGalleryPermissionForPicker() async {
     final photosStatus = await Permission.photos.status;
     if (photosStatus.isGranted || photosStatus.isLimited) return true;
@@ -304,7 +348,15 @@ class _DoctorAccountCreationStep1State
       _confirmTouched = true;
       _nameTouched = true;
     });
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    _runningFormValidation = true;
+    final formOk = _formKey.currentState?.validate() ?? false;
+    _runningFormValidation = false;
+    if (!formOk) return;
+
+    ProfileFieldValidation.syncTextControllerToExactText(
+      _nameCtrl,
+      _normalizedSignupFullName(),
+    );
 
     if (widget.onNext != null) {
       widget.onNext!();
@@ -477,12 +529,14 @@ class _DoctorAccountCreationStep1State
                           decoration: _inputDecoration(),
                           focusNode: _emailFocusNode,
                           fieldKey: _emailFieldKey,
-                          validator: (v) =>
-                              _emailTouched ? _validateEmail(v) : null,
-                          onChanged: (_) {
-                            if (_emailTouched) {
-                              _emailFieldKey.currentState?.validate();
+                          validator: (v) {
+                            if (!_emailTouched) return null;
+                            if (_emailFocusNode.hasFocus && !_runningFormValidation) {
+                              return null;
                             }
+                            return _validateEmail(v);
+                          },
+                          onChanged: (_) {
                             setState(() {});
                           },
                         ),
@@ -605,35 +659,58 @@ class _DoctorAccountCreationStep1State
                         const SizedBox(height: 8),
 
                         Container(
-                          height: 46,
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          constraints: const BoxConstraints(minHeight: 46),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: BColors.grey),
                             color: BColors.white,
                           ),
                           child: Row(
+                            textDirection: TextDirection.rtl,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              IconButton(
-                                onPressed: _pickImage,
-                                icon: Icon(
-                                  _profileImage != null
-                                      ? Icons.edit_rounded
-                                      : Icons.download_rounded,
-                                  color: BColors.primary,
-                                ),
-                              ),
-                              const Spacer(),
                               if (_profileImage != null)
-                                const Text(
-                                  'تم اختيار صورة',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: BColors.darkGrey,
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: BColors.grey),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(9),
+                                    child: Image.file(
+                                      _profileImage!,
+                                      width: 64,
+                                      height: 64,
+                                      fit: BoxFit.cover,
+                                      filterQuality: FilterQuality.medium,
+                                    ),
                                   ),
                                 ),
                               const Spacer(),
+                              if (_profileImage != null) ...[
+                                _circleProfileImageAction(
+                                  icon: Icons.edit,
+                                  iconColor: Colors.grey,
+                                  onTap: _pickImage,
+                                ),
+                                const SizedBox(width: 10),
+                                _circleProfileImageAction(
+                                  icon: Icons.delete_outline,
+                                  iconColor: Colors.redAccent,
+                                  onTap: _clearProfileImage,
+                                  tooltip: 'إزالة الصورة',
+                                ),
+                              ] else
+                                _circleProfileImageAction(
+                                  icon: Icons.download_rounded,
+                                  iconColor: Colors.grey,
+                                  onTap: _pickImage,
+                                ),
                             ],
                           ),
                         ),

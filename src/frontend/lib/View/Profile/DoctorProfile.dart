@@ -13,7 +13,7 @@ import 'package:bouh/widgets/confirmation_popup.dart';
 import 'package:bouh/widgets/loading_overlay.dart';
 import 'package:bouh/services/profileService.dart';
 import 'package:bouh/dto/doctorUpdateDto.dart';
-import 'package:bouh/utils/profile_field_validation.dart';
+import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 const TextStyle _kProfileFieldValueStyle = TextStyle(
@@ -735,7 +735,13 @@ class _DoctorProfileViewState extends State<DoctorProfileView>
       return;
     }
 
-    final nameBody = _doctorNameBodyNormalized;
+    final nameErr = _validateDoctorNameLikeRegistration(_nameCtrl.text);
+    if (nameErr != null) {
+      setState(() => _saveError = nameErr);
+      return;
+    }
+    ProfileFieldValidation.syncTextControllerToNormalizedPersonName(_nameCtrl);
+
     final name = _doctorFullNameNormalized;
     final currentIban = _ibanReadOnlyDisplay().trim();
     final currentGender = _gender;
@@ -743,11 +749,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView>
         name != originalName ||
         currentIban != originalIban ||
         currentGender.trim().toLowerCase() != originalGender;
-    final nameErr = _validateDoctorNameLikeRegistration(name);
-    if (nameErr != null) {
-      setState(() => _saveError = nameErr);
-      return;
-    }
+
     final ibanErr = _validateIbanSuffix(_ibanCtrl.text);
     if (ibanErr != null) {
       setState(() => _saveError = ibanErr);
@@ -980,6 +982,7 @@ class _DoctorProfileViewState extends State<DoctorProfileView>
     void onNameFocusChange() {
       if (!nameFocusNode.hasFocus && personalEditing) {
         nameTouched = true;
+        ProfileFieldValidation.syncTextControllerToNormalizedPersonName(_nameCtrl);
         refreshPersonalPage?.call();
       }
     }

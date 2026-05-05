@@ -11,7 +11,7 @@ import 'package:bouh/config/api_config.dart';
 import 'package:bouh/View/Login/login_view.dart';
 import 'package:bouh/widgets/confirmation_popup.dart';
 import 'package:bouh/widgets/loading_overlay.dart';
-import 'package:bouh/utils/profile_field_validation.dart';
+import 'package:bouh/widgets/profile_field_validation.dart';
 
 class CaregiverAccountView extends StatefulWidget {
   const CaregiverAccountView({
@@ -235,6 +235,7 @@ class _CaregiverAccountViewState extends State<CaregiverAccountView> {
     void onNameFocusChange() {
       if (!nameFocusNode.hasFocus && editingNameRef[0]) {
         nameTouched = true;
+        ProfileFieldValidation.syncTextControllerToNormalizedPersonName(_nameCtrl);
         setState(() {
           _nameError = _validateName(_nameCtrl.text);
         });
@@ -593,15 +594,17 @@ class _CaregiverAccountViewState extends State<CaregiverAccountView> {
       ProfileFieldValidation.caregiverDisplayName(value);
 
   Future<void> _saveNameInline() async {
-    final candidate = ProfileFieldValidation.normalizePersonName(
-      _nameCtrl.text,
-    );
     final validation = _validateName(_nameCtrl.text);
     if (validation != null) {
       setState(() => _nameError = validation);
       return;
     }
+    ProfileFieldValidation.syncTextControllerToNormalizedPersonName(_nameCtrl);
+    final candidate = ProfileFieldValidation.normalizePersonName(
+      _nameCtrl.text,
+    );
     if (candidate == ProfileFieldValidation.normalizePersonName(_name)) {
+      setState(() => _nameError = null);
       return;
     }
 
