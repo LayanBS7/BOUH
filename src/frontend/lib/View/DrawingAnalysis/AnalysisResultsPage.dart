@@ -274,7 +274,7 @@ class AnalysisResultsPage extends StatelessWidget {
                 border: Border.all(color: BColors.primary, width: 3),
               ),
               child: imageUrl == null
-                  ? const Icon(Icons.person, size: 40, color: BColors.darkGrey)
+                  ? Image.asset('assets/images/default_ProfileImage.png')
                   : null,
             ),
             const SizedBox(height: 16),
