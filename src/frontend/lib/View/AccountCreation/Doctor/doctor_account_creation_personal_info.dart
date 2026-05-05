@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
+import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:bouh/dto/doctorSignupData.dart';
 import 'package:bouh/View/AccountCreation/Doctor/doctor_account_creation_work_info.dart';
 import 'package:bouh/widgets/password_strength_widget.dart';
@@ -21,6 +23,9 @@ class DoctorAccountCreationStep1 extends StatefulWidget {
 
 class _DoctorAccountCreationStep1State
     extends State<DoctorAccountCreationStep1> {
+  static const String _kGalleryPermissionDeniedMessage =
+      'لم يتم السماح بالوصول إلى الصور. يرجى تفعيل إذن الوصول للصور من الاعدادات ثم المحاولة مرة أخرى.';
+
   final _formKey = GlobalKey<FormState>();
   final _emailFieldKey = GlobalKey<FormFieldState<String>>();
   final _passwordFieldKey = GlobalKey<FormFieldState<String>>();
@@ -41,8 +46,13 @@ class _DoctorAccountCreationStep1State
   bool _passwordTouched = false;
   bool _confirmTouched = false;
   bool _nameTouched = false;
-  bool _showPassword = false;
-  bool _showConfirmPassword = false;
+
+  /// When true, email validator runs even if the email field still has focus (full-form submit).
+  bool _runningFormValidation = false;
+
+  /// When true, password is hidden (same convention as caregiver signup / login).
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   String _gender = 'female';
   File? _profileImage;
@@ -53,7 +63,9 @@ class _DoctorAccountCreationStep1State
   bool get _isFormComplete {
     final nameTrimmed = _nameCtrl.text.trim();
     final nameUserPart = nameTrimmed.length > _namePrefix.length
-        ? nameTrimmed.substring(_namePrefix.length).trim()
+        ? ProfileFieldValidation.normalizePersonName(
+            nameTrimmed.substring(_namePrefix.length),
+          )
         : '';
     return _emailCtrl.text.trim().isNotEmpty &&
         _passCtrl.text.isNotEmpty &&
@@ -84,11 +96,13 @@ class _DoctorAccountCreationStep1State
   }
 
   void _onEmailFocusChange() {
-    if (!_emailFocusNode.hasFocus) {
-      _emailTouched = true;
+    if (_emailFocusNode.hasFocus) {
       _emailFieldKey.currentState?.validate();
-      if (mounted) setState(() {});
+      return;
     }
+    _emailTouched = true;
+    _emailFieldKey.currentState?.validate();
+    if (mounted) setState(() {});
   }
 
   void _onPasswordFocusChange() {
@@ -110,6 +124,10 @@ class _DoctorAccountCreationStep1State
   void _onNameFocusChange() {
     if (!_nameFocusNode.hasFocus) {
       _nameTouched = true;
+      ProfileFieldValidation.syncTextControllerToExactText(
+        _nameCtrl,
+        _normalizedSignupFullName(),
+      );
       _nameFieldKey.currentState?.validate();
       if (mounted) setState(() {});
     }
@@ -142,14 +160,7 @@ class _DoctorAccountCreationStep1State
     if (domainParts.length < 2) return 'يرجى إدخال بريد إلكتروني صحيح';
 
     // Validate top-level domain to avoid fake endings like ".vrgt.ff".
-    const allowedTlds = <String>{
-      'com',
-      'net',
-      'org',
-      'edu',
-      'gov',
-      'sa',
-    };
+    const allowedTlds = <String>{'com', 'net', 'org', 'edu', 'gov', 'sa'};
     final tld = domainParts.last;
     final tldRegex = RegExp(r'^[a-zA-Z]{2,}$');
     if (!tldRegex.hasMatch(tld) || !allowedTlds.contains(tld)) {
@@ -175,17 +186,22 @@ class _DoctorAccountCreationStep1State
     if (value == null || value.trim().length <= _namePrefix.length) {
       return 'يرجى إدخال الاسم';
     }
-    final userEntered = value.trim().substring(_namePrefix.length).trim();
-    if (userEntered.isEmpty) {
+    final userPart = ProfileFieldValidation.normalizePersonName(
+      value.trim().substring(_namePrefix.length),
+    );
+    if (userPart.isEmpty) {
       return 'يرجى إدخال الاسم';
     }
-    final arabicOnly = RegExp(
-      r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+$',
+    return ProfileFieldValidation.doctorNameUserPart(userPart);
+  }
+
+  String _normalizedSignupFullName() {
+    final t = _nameCtrl.text.trim();
+    if (t.length <= _namePrefix.length) return t;
+    final body = ProfileFieldValidation.normalizePersonName(
+      t.substring(_namePrefix.length),
     );
-    if (!arabicOnly.hasMatch(userEntered)) {
-      return 'يرجى إدخال الاسم باللغة العربية فقط';
-    }
-    return null;
+    return '$_namePrefix$body';
   }
 
   @override
@@ -207,14 +223,32 @@ class _DoctorAccountCreationStep1State
 
   Future<void> _pickImage() async {
     print('[DoctorReg Step1] _pickImage: started');
+    if (!await _ensureGalleryPermissionForPicker()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: BColors.validationError,
+          content: Text(
+            _kGalleryPermissionDeniedMessage,
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+      return;
+    }
+
     if (widget.onPickImage != null) {
       print('[DoctorReg Step1] _pickImage: using widget.onPickImage callback');
       final file = await widget.onPickImage!();
       if (file == null) {
-        print('[DoctorReg Step1] _pickImage: callback returned null, user cancelled');
+        print(
+          '[DoctorReg Step1] _pickImage: callback returned null, user cancelled',
+        );
         return;
       }
-      print('[DoctorReg Step1] _pickImage: callback returned file path=${file.path}');
+      print(
+        '[DoctorReg Step1] _pickImage: callback returned file path=${file.path}',
+      );
       final purePath = _toPurePath(file.path);
       setState(() {
         _profileImagePath = purePath;
@@ -238,6 +272,65 @@ class _DoctorAccountCreationStep1State
     print('[DoctorReg Step1] _pickImage: _profileImage set from gallery');
   }
 
+  void _clearProfileImage() {
+    setState(() {
+      _profileImage = null;
+      _profileImagePath = null;
+    });
+  }
+
+  /// Same circular action style as [ChildrenManagementView] child cards.
+  Widget _circleProfileImageAction({
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onTap,
+    String? tooltip,
+  }) {
+    final ink = InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE9EEF3),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black.withOpacity(0.08)),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+    );
+    if (tooltip != null && tooltip.isNotEmpty) {
+      return Tooltip(message: tooltip, child: ink);
+    }
+    return ink;
+  }
+
+  Future<bool> _ensureGalleryPermissionForPicker() async {
+    final photosStatus = await Permission.photos.status;
+    if (photosStatus.isGranted || photosStatus.isLimited) return true;
+    if (Platform.isAndroid) {
+      final storageStatus = await Permission.storage.status;
+      if (storageStatus.isGranted) return true;
+    }
+
+    final photosRequest = await Permission.photos.request();
+    if (photosRequest.isGranted || photosRequest.isLimited) return true;
+    if (Platform.isAndroid) {
+      final storageRequest = await Permission.storage.request();
+      if (storageRequest.isGranted) return true;
+    }
+
+    // Re-check after permissions flow to avoid stale values.
+    final refreshedPhotos = await Permission.photos.status;
+    if (refreshedPhotos.isGranted || refreshedPhotos.isLimited) return true;
+    if (Platform.isAndroid) {
+      final refreshedStorage = await Permission.storage.status;
+      if (refreshedStorage.isGranted) return true;
+    }
+    return false;
+  }
+
   String _toPurePath(String rawPath) {
     final trimmed = rawPath.trim();
     if (trimmed.isEmpty) return trimmed;
@@ -255,7 +348,15 @@ class _DoctorAccountCreationStep1State
       _confirmTouched = true;
       _nameTouched = true;
     });
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    _runningFormValidation = true;
+    final formOk = _formKey.currentState?.validate() ?? false;
+    _runningFormValidation = false;
+    if (!formOk) return;
+
+    ProfileFieldValidation.syncTextControllerToExactText(
+      _nameCtrl,
+      _normalizedSignupFullName(),
+    );
 
     if (widget.onNext != null) {
       widget.onNext!();
@@ -265,12 +366,14 @@ class _DoctorAccountCreationStep1State
     final signupData = DoctorSignupData(
       email: _emailCtrl.text.trim(),
       password: _passCtrl.text,
-      name: _nameCtrl.text.trim(),
+      name: _normalizedSignupFullName(),
       gender: _gender,
       profileImage: _profileImage,
       profileImagePath: _profileImagePath,
     );
-    print('[DoctorReg Step1] _handleNext: signupData created with profileImage=${_profileImage != null ? _profileImage!.path : "null"}');
+    print(
+      '[DoctorReg Step1] _handleNext: signupData created with profileImage=${_profileImage != null ? _profileImage!.path : "null"}',
+    );
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -278,6 +381,14 @@ class _DoctorAccountCreationStep1State
       ),
     );
     print('[DoctorReg Step1] _handleNext: pushed to Step2 with signupData');
+  }
+
+  Future<void> _popStep1() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   InputDecoration _inputDecoration({Widget? suffixIcon}) {
@@ -315,21 +426,26 @@ class _DoctorAccountCreationStep1State
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) return;
+        await _popStep1();
+      },
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
         backgroundColor: BColors.white,
         body: SafeArea(
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // ================== CONTENT ==================
               SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(22, 30, 22, 30),
                   child: Form(
                     key: _formKey,
-                    autovalidateMode: AutovalidateMode.disabled,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -344,7 +460,7 @@ class _DoctorAccountCreationStep1State
                                   size: 20,
                                   color: BColors.textDarkestBlue,
                                 ),
-                                onPressed: () => Navigator.pop(context),
+                                onPressed: _popStep1,
                               ),
                               const SizedBox(width: 6),
                               const Expanded(
@@ -387,9 +503,19 @@ class _DoctorAccountCreationStep1State
                           fieldKey: _nameFieldKey,
                           validator: (v) =>
                               _nameTouched ? _validateName(v) : null,
-                          onChanged: (_) => setState(() {}),
+                          onChanged: (_) {
+                            if (_nameTouched) {
+                              _nameFieldKey.currentState?.validate();
+                            }
+                            setState(() {});
+                          },
                           inputFormatters: [
                             _DoctorNamePrefixFormatter(prefix: _namePrefix),
+                            LengthLimitingTextInputFormatter(
+                              _namePrefix.length +
+                                  ProfileFieldValidation
+                                      .personDisplayNameMaxLength,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 14),
@@ -403,18 +529,14 @@ class _DoctorAccountCreationStep1State
                           decoration: _inputDecoration(),
                           focusNode: _emailFocusNode,
                           fieldKey: _emailFieldKey,
-                          validator: (v) =>
-                              _emailTouched ? _validateEmail(v) : null,
+                          validator: (v) {
+                            if (!_emailTouched) return null;
+                            if (_emailFocusNode.hasFocus && !_runningFormValidation) {
+                              return null;
+                            }
+                            return _validateEmail(v);
+                          },
                           onChanged: (_) {
-                            if (_confirmCtrl.text.isNotEmpty) {
-                              _confirmTouched = true;
-                            }
-                            if (_passwordTouched) {
-                              _passwordFieldKey.currentState?.validate();
-                            }
-                            if (_confirmTouched) {
-                              _confirmPasswordFieldKey.currentState?.validate();
-                            }
                             setState(() {});
                           },
                         ),
@@ -425,14 +547,14 @@ class _DoctorAccountCreationStep1State
                           placeholder: '••••••••',
                           controller: _passCtrl,
                           keyboardType: TextInputType.text,
-                          obscure: !_showPassword,
+                          obscure: _obscurePassword,
                           decoration: _inputDecoration(
                             suffixIcon: IconButton(
                               onPressed: () => setState(
-                                () => _showPassword = !_showPassword,
+                                () => _obscurePassword = !_obscurePassword,
                               ),
                               icon: Icon(
-                                _showPassword
+                                _obscurePassword
                                     ? Icons.visibility_off
                                     : Icons.visibility,
                                 color: BColors.darkGrey,
@@ -446,6 +568,9 @@ class _DoctorAccountCreationStep1State
                           onChanged: (_) {
                             if (_confirmCtrl.text.isNotEmpty) {
                               _confirmTouched = true;
+                            }
+                            if (_passwordTouched) {
+                              _passwordFieldKey.currentState?.validate();
                             }
                             if (_confirmTouched) {
                               _confirmPasswordFieldKey.currentState?.validate();
@@ -462,15 +587,15 @@ class _DoctorAccountCreationStep1State
                           placeholder: '••••••••',
                           controller: _confirmCtrl,
                           keyboardType: TextInputType.text,
-                          obscure: !_showConfirmPassword,
+                          obscure: _obscureConfirmPassword,
                           decoration: _inputDecoration(
                             suffixIcon: IconButton(
                               onPressed: () => setState(
-                                () => _showConfirmPassword =
-                                    !_showConfirmPassword,
+                                () => _obscureConfirmPassword =
+                                    !_obscureConfirmPassword,
                               ),
                               icon: Icon(
-                                _showConfirmPassword
+                                _obscureConfirmPassword
                                     ? Icons.visibility_off
                                     : Icons.visibility,
                                 color: BColors.darkGrey,
@@ -482,7 +607,12 @@ class _DoctorAccountCreationStep1State
                           validator: (v) => _confirmTouched
                               ? _validateConfirmPassword(v)
                               : null,
-                          onChanged: (_) => setState(() {}),
+                          onChanged: (_) {
+                            if (_confirmTouched) {
+                              _confirmPasswordFieldKey.currentState?.validate();
+                            }
+                            setState(() {});
+                          },
                         ),
                         const SizedBox(height: 14),
 
@@ -529,35 +659,58 @@ class _DoctorAccountCreationStep1State
                         const SizedBox(height: 8),
 
                         Container(
-                          height: 46,
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          constraints: const BoxConstraints(minHeight: 46),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: BColors.grey),
                             color: BColors.white,
                           ),
                           child: Row(
+                            textDirection: TextDirection.rtl,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              IconButton(
-                                onPressed: _pickImage,
-                                icon: Icon(
-                                  _profileImage != null
-                                      ? Icons.edit_rounded
-                                      : Icons.download_rounded,
-                                  color: BColors.primary,
-                                ),
-                              ),
-                              const Spacer(),
                               if (_profileImage != null)
-                                const Text(
-                                  'تم اختيار صورة',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: BColors.darkGrey,
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: BColors.grey),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(9),
+                                    child: Image.file(
+                                      _profileImage!,
+                                      width: 64,
+                                      height: 64,
+                                      fit: BoxFit.cover,
+                                      filterQuality: FilterQuality.medium,
+                                    ),
                                   ),
                                 ),
                               const Spacer(),
+                              if (_profileImage != null) ...[
+                                _circleProfileImageAction(
+                                  icon: Icons.edit,
+                                  iconColor: Colors.grey,
+                                  onTap: _pickImage,
+                                ),
+                                const SizedBox(width: 10),
+                                _circleProfileImageAction(
+                                  icon: Icons.delete_outline,
+                                  iconColor: Colors.redAccent,
+                                  onTap: _clearProfileImage,
+                                  tooltip: 'إزالة الصورة',
+                                ),
+                              ] else
+                                _circleProfileImageAction(
+                                  icon: Icons.download_rounded,
+                                  iconColor: Colors.grey,
+                                  onTap: _pickImage,
+                                ),
                             ],
                           ),
                         ),
@@ -599,6 +752,7 @@ class _DoctorAccountCreationStep1State
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -787,8 +941,10 @@ class _DoctorNamePrefixFormatter extends TextInputFormatter {
     }
     if (!text.startsWith(prefix)) {
       final newText = prefix + text;
-      final newOffset = (prefix.length + newValue.selection.baseOffset)
-          .clamp(prefix.length, newText.length);
+      final newOffset = (prefix.length + newValue.selection.baseOffset).clamp(
+        prefix.length,
+        newText.length,
+      );
       return TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(offset: newOffset),
@@ -840,10 +996,7 @@ class _LabeledFormField extends StatelessWidget {
           obscureText: obscure,
           decoration: decoration.copyWith(
             hintText: placeholder,
-            hintStyle: const TextStyle(
-              color: BColors.darkGrey,
-              fontSize: 13,
-            ),
+            hintStyle: const TextStyle(color: BColors.darkGrey, fontSize: 13),
           ),
           validator: validator,
           textAlign: TextAlign.right,

@@ -85,14 +85,15 @@ class AuthService {
         case 'invalid-email':
           return 'صيغة البريد الإلكتروني غير صحيحة.';
         case 'user-not-found':
-          return 'لا يوجد حساب مسجل بهذا البريد الإلكتروني.';
+          // Same UX as success — do not reveal whether the email is registered.
+          return null;
         case 'too-many-requests':
           return 'تم تجاوز عدد المحاولات. انتظر دقيقة ثم اضغط إرسال مرة أخرى.';
         default:
-          return 'تعذر إرسال رابط استعادة كلمة المرور.';
+          return 'تعذر إرسال رابط استعادة كلمة المرور. تأكد أنك متصل بالشبكة وحاول مرة أخرى.';
       }
     } catch (_) {
-      return 'لا يوجد اتصال بالإنترنت.';
+      return 'تعذر إرسال رابط استعادة كلمة المرور. تأكد أنك متصل بالشبكة وحاول مرة أخرى.';
     }
   }
 

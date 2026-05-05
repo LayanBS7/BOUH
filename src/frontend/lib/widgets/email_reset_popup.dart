@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
+import 'package:bouh/widgets/profile_field_validation.dart';
 
 /// Reusable popup for the user to enter an email (e.g. for reset password).
 /// On submit, [onSubmit] is called with the trimmed email. Returns null on success,
@@ -51,71 +53,63 @@ class EmailResetPopup extends StatefulWidget {
 
 class _EmailResetPopupState extends State<EmailResetPopup> {
   final _formKey = GlobalKey<FormState>();
+  final _emailFieldKey = GlobalKey<FormFieldState<String>>();
   final _emailCtrl = TextEditingController();
+  final FocusNode _emailFocusNode = FocusNode();
+
+  bool _emailTouched = false;
+
+  /// When true, email validator runs even if the field still has focus (submit).
+  bool _runningFormValidation = false;
+
   bool _loading = false;
   String? _errorMessage;
 
-  static String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'يرجى إدخال البريد الإلكتروني';
-    }
-    final trimmed = value.trim();
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    );
-    if (!emailRegex.hasMatch(trimmed)) {
-      return 'يرجى إدخال بريد إلكتروني صحيح';
-    }
+  bool get _canSubmitEmail =>
+      ProfileFieldValidation.accountEmail(_emailCtrl.text) == null;
 
-    const allowedDomains = <String>{
-      'gmail.com',
-      'outlook.com',
-      'hotmail.com',
-      'yahoo.com',
-      'icloud.com',
-      'live.com',
-    };
+  @override
+  void initState() {
+    super.initState();
+    _emailFocusNode.addListener(_onEmailFocusChange);
+  }
 
-    final parts = trimmed.split('@');
-    if (parts.length != 2) {
-      return 'يرجى إدخال بريد إلكتروني صحيح';
+  void _onEmailFocusChange() {
+    if (_emailFocusNode.hasFocus) {
+      if (_errorMessage != null) setState(() => _errorMessage = null);
+      _emailFieldKey.currentState?.validate();
+      return;
     }
-    final domain = parts.last.toLowerCase();
-    final domainParts = domain.split('.');
-    if (domainParts.length < 2) {
-      return 'يرجى إدخال بريد إلكتروني صحيح';
-    }
+    _emailTouched = true;
+    _emailFieldKey.currentState?.validate();
+    if (mounted) setState(() {});
+  }
 
-    // Validate top-level domain (e.g. reject gmail.vrgt, gmail.ff).
-    const allowedTlds = <String>{
-      'com',
-      'net',
-      'org',
-      'edu',
-      'gov',
-      'sa',
-    };
-    final tld = domainParts.last;
-    final tldRegex = RegExp(r'^[a-zA-Z]{2,}$');
-    if (!tldRegex.hasMatch(tld) || !allowedTlds.contains(tld)) {
-      return 'يرجى إدخال بريد إلكتروني صحيح';
-    }
-
-    if (!allowedDomains.contains(domain)) {
-      return 'يرجى استخدام بريد من مزوّد معتمد (مثل Gmail / Outlook)';
-    }
-
-    return null;
+  Future<void> _dismissWithDelay(bool result) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    if (!mounted) return;
+    Navigator.of(context).pop(result);
   }
 
   @override
   void dispose() {
+    _emailFocusNode.removeListener(_onEmailFocusChange);
+    _emailFocusNode.dispose();
     _emailCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _handleSubmit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() {
+      _emailTouched = true;
+      _errorMessage = null;
+    });
+    _runningFormValidation = true;
+    final formOk = _formKey.currentState?.validate() ?? false;
+    _runningFormValidation = false;
+    if (!formOk) return;
 
     setState(() {
       _loading = true;
@@ -133,7 +127,7 @@ class _EmailResetPopupState extends State<EmailResetPopup> {
     });
 
     if (result == null) {
-      Navigator.of(context).pop(true); // success
+      await _dismissWithDelay(true); // success
     }
     // else: keep dialog open, show _errorMessage so user can fix and resend
   }
@@ -158,14 +152,24 @@ class _EmailResetPopupState extends State<EmailResetPopup> {
           width: 360,
           child: Form(
             key: _formKey,
+            autovalidateMode: AutovalidateMode.disabled,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 TextFormField(
+                  key: _emailFieldKey,
+                  autovalidateMode: AutovalidateMode.disabled,
                   controller: _emailCtrl,
+                  focusNode: _emailFocusNode,
                   keyboardType: TextInputType.emailAddress,
                   textAlign: TextAlign.right,
+                  onChanged: (_) {
+                    if (_errorMessage != null) {
+                      setState(() => _errorMessage = null);
+                    }
+                    setState(() {});
+                  },
                   decoration: InputDecoration(
                     hintText: widget.hint,
                     prefixIcon: const Icon(
@@ -196,9 +200,15 @@ class _EmailResetPopupState extends State<EmailResetPopup> {
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
-                  errorMaxLines: 2,
+                    errorMaxLines: 2,
                   ),
-                  validator: _validateEmail,
+                  validator: (v) {
+                    if (!_emailTouched) return null;
+                    if (_emailFocusNode.hasFocus && !_runningFormValidation) {
+                      return null;
+                    }
+                    return ProfileFieldValidation.accountEmail(v);
+                  },
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 10),
@@ -220,7 +230,7 @@ class _EmailResetPopupState extends State<EmailResetPopup> {
         ),
         actions: [
           TextButton(
-            onPressed: _loading ? null : () => Navigator.of(context).pop(false),
+            onPressed: _loading ? null : () => _dismissWithDelay(false),
             child: Text(
               widget.cancelText,
               style: const TextStyle(
@@ -231,10 +241,12 @@ class _EmailResetPopupState extends State<EmailResetPopup> {
             ),
           ),
           ElevatedButton(
-            onPressed: _loading ? null : _handleSubmit,
+            onPressed: _loading || !_canSubmitEmail ? null : _handleSubmit,
             style: ElevatedButton.styleFrom(
               backgroundColor: BColors.primary,
               foregroundColor: BColors.white,
+              disabledBackgroundColor: BColors.primary.withValues(alpha: 0.4),
+              disabledForegroundColor: BColors.white.withValues(alpha: 0.8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:io' show SocketException;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
+import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:bouh/dto/caregiverSignupData.dart';
 import 'package:bouh/dto/caregiverDto.dart';
 import 'package:bouh/authentication/AuthService.dart';
@@ -14,14 +16,9 @@ class CaregiverAccountCreationStep2 extends StatefulWidget {
   const CaregiverAccountCreationStep2({
     super.key,
     this.signupData,
-    this.onSubmitChildren,
   });
 
   final CaregiverSignupData? signupData;
-
-  /// Optional hook when not using [signupData]: custom submit of children payload.
-  final Future<void> Function(List<Map<String, String>> children)?
-  onSubmitChildren;
 
   @override
   State<CaregiverAccountCreationStep2> createState() =>
@@ -30,6 +27,10 @@ class CaregiverAccountCreationStep2 extends StatefulWidget {
 
 class _ChildFormData {
   final TextEditingController nameController = TextEditingController();
+  final FocusNode nameFocusNode = FocusNode();
+  /// Same pattern as qualifications: remove listener before disposing [nameFocusNode].
+  VoidCallback? _onNameBlurNormalize;
+
   String gender = 'female';
   String? day;
   String? month;
@@ -41,7 +42,13 @@ class _ChildFormData {
       month != null &&
       year != null;
 
-  void dispose() => nameController.dispose();
+  void dispose() {
+    if (_onNameBlurNormalize != null) {
+      nameFocusNode.removeListener(_onNameBlurNormalize!);
+    }
+    nameFocusNode.dispose();
+    nameController.dispose();
+  }
 }
 
 class _CaregiverAccountCreationStep2State
@@ -66,29 +73,54 @@ class _CaregiverAccountCreationStep2State
     return List.generate(n, (i) => '${i + 1}');
   }
 
-  /// If the child's selected day exceeds the last day of the selected month/year, clamp it.
-  void _clampDayIfNeeded(_ChildFormData child) {
+  /// Clears the selected day when month/year change makes it invalid for the calendar.
+  void _clearDayIfInvalidForMonthYear(_ChildFormData child) {
     final m = child.month != null ? int.tryParse(child.month!) : null;
     final y = child.year != null ? int.tryParse(child.year!) : null;
     if (m == null || y == null || child.day == null) return;
     final maxDay = _daysInMonth(y, m);
     final d = int.tryParse(child.day!);
-    if (d != null && d > maxDay) {
-      child.day = '$maxDay';
+    if (d == null || d < 1 || d > maxDay) {
+      child.day = null;
     }
   }
 
-  /// Validates that the selected day is valid for the selected month/year.
-  /// Returns an error message if invalid, null if valid or if month/year/day not yet selected.
-  String? _getDateValidationError(_ChildFormData child) {
-    final m = child.month != null ? int.tryParse(child.month!) : null;
-    final y = child.year != null ? int.tryParse(child.year!) : null;
-    final d = child.day != null ? int.tryParse(child.day!) : null;
-    if (m == null || y == null || d == null) return null;
-    final maxDay = _daysInMonth(y, m);
-    if (d < 1 || d > maxDay) {
-      return 'اختر يوماً صحيحاً لهذا الشهر (١–$maxDay)';
+  /// Birth date from dropdowns: real calendar check + age 6–13 (same rule as [ChildrenManagementView]).
+  /// Year/month/day lists already constrain ranges; we skip duplicate bound messages.
+  String? _validateChildDateOfBirth(_ChildFormData child) {
+    final ys = child.year;
+    final ms = child.month;
+    final ds = child.day;
+    if (ys == null || ms == null || ds == null) return null;
+
+    final y = int.tryParse(ys);
+    final m = int.tryParse(ms);
+    final d = int.tryParse(ds);
+    if (y == null || m == null || d == null) {
+      return 'تاريخ الميلاد يجب أن يكون أرقامًا';
     }
+
+    final dob =
+        '${y.toString().padLeft(4, '0')}-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}';
+
+    final birthDate = DateTime.tryParse('${dob}T00:00:00');
+    if (birthDate == null ||
+        birthDate.year != y ||
+        birthDate.month != m ||
+        birthDate.day != d) {
+      return 'تاريخ الميلاد غير صحيح';
+    }
+
+    final today = DateTime.now();
+    int age = today.year - birthDate.year;
+    if (today.month < birthDate.month ||
+        (today.month == birthDate.month && today.day < birthDate.day)) {
+      age--;
+    }
+    if (age < 6 || age > 13) {
+      return 'يجب أن يكون عمر الطفل بين 6 و 13 سنة';
+    }
+
     return null;
   }
 
@@ -99,6 +131,29 @@ class _CaregiverAccountCreationStep2State
     final maxYear = now - 6;
 
     return List.generate(maxYear - minYear + 1, (i) => '${maxYear - i}');
+  }
+
+  /// Like qualifications: normalize child name in the field when focus leaves.
+  void _attachChildNameBlurNormalize(_ChildFormData c) {
+    void listener() {
+      if (!c.nameFocusNode.hasFocus) {
+        ProfileFieldValidation.syncTextControllerToNormalizedPersonName(
+          c.nameController,
+        );
+        if (mounted) setState(() {});
+      }
+    }
+
+    c._onNameBlurNormalize = listener;
+    c.nameFocusNode.addListener(listener);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    for (final c in _childrenForms) {
+      _attachChildNameBlurNormalize(c);
+    }
   }
 
   @override
@@ -114,18 +169,6 @@ class _CaregiverAccountCreationStep2State
         _childrenForms.every((c) => c.isComplete);
   }
 
-  // ---------------------------------------------------------------------------
-  // Validation helper: allow Arabic or English letters + spaces for children names.
-  // ---------------------------------------------------------------------------
-  bool _isValidName(String value) {
-    final v = value.trim();
-    if (v.isEmpty) return false;
-    final nameRegex = RegExp(
-      r'^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FFa-zA-Z\s]+$',
-    );
-    return nameRegex.hasMatch(v);
-  }
-
   bool _canShowAddButton() {
     final last = _childrenForms.last;
     return last.isComplete && _childrenForms.length < _maxChildren;
@@ -133,7 +176,9 @@ class _CaregiverAccountCreationStep2State
 
   void _addAnotherChild() {
     if (!_canShowAddButton()) return;
-    setState(() => _childrenForms.add(_ChildFormData()));
+    final next = _ChildFormData();
+    _attachChildNameBlurNormalize(next);
+    setState(() => _childrenForms.add(next));
   }
 
   void _removeChild(int index) {
@@ -149,26 +194,14 @@ class _CaregiverAccountCreationStep2State
     final signupData = widget.signupData;
     if (signupData == null) return;
 
-    // Enforce valid child names (Arabic or English letters)
-    final hasInvalidChildName = _childrenForms.any(
-      (c) => !_isValidName(c.nameController.text),
-    );
-    if (hasInvalidChildName) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('يرجى إدخال أسماء الأطفال بالأحرف العربية أو الإنجليزية فقط'),
-          ),
-        );
-      }
-      return;
-    }
-
-    // Validate date: day must be valid for the selected month/year
     for (final c in _childrenForms) {
-      final dateErr = _getDateValidationError(c);
+      ProfileFieldValidation.syncTextControllerToNormalizedPersonName(
+        c.nameController,
+      );
+      final dateErr = _validateChildDateOfBirth(c);
       if (dateErr != null) {
         if (mounted) {
+          setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(dateErr)),
           );
@@ -210,7 +243,9 @@ class _CaregiverAccountCreationStep2State
 
         await childrenService.addChild(
           caregiverId: caregiverId,
-          name: c.nameController.text.trim(),
+          name: ProfileFieldValidation.normalizePersonName(
+            c.nameController.text,
+          ),
           dateOfBirth: dateOfBirth,
           gender: c.gender,
         );
@@ -233,13 +268,11 @@ class _CaregiverAccountCreationStep2State
         message =
             'الخادم لا يستجيب أو لا يوجد اتصال. تحقق من الإنترنت وحاول مرة أخرى.';
       } else {
-        message = 'تعذر إنشاء الحساب أو حفظ بيانات الأطفال. حاول مرة أخرى.';
+        message =
+            'تعذر إنشاء الحساب أو حفظ بيانات الأطفال، تأكد من أنك متصل بالشبكة وحاول مرة أخرى.';
       }
 
-      setState(() {
-        _isSubmitting = false;
-        _submitError = message;
-      });
+      setState(() => _submitError = message);
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -286,9 +319,18 @@ class _CaregiverAccountCreationStep2State
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                size: 20,
+                                color: BColors.textDarkestBlue,
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            const SizedBox(width: 6),
                             const Expanded(
                               child: Text(
-                                ' أضف طفلاً واحداً على الأقل للمتابعة',
+                                ' أضف طفلاً واحداً للمتابعة',
                                 textAlign: TextAlign.right,
                                 style: TextStyle(
                                   fontSize: 16,
@@ -315,6 +357,8 @@ class _CaregiverAccountCreationStep2State
                         itemBuilder: (context, index) {
                           final child = _childrenForms[index];
                           final canDelete = _childrenForms.length > 1;
+                          final dateOfBirthError =
+                              _validateChildDateOfBirth(child);
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 18),
@@ -342,9 +386,16 @@ class _CaregiverAccountCreationStep2State
                                 const SizedBox(height: 8),
                                 TextField(
                                   controller: child.nameController,
+                                  focusNode: child.nameFocusNode,
                                   keyboardType: TextInputType.name,
                                   textAlign: TextAlign.right,
                                   decoration: _inputDecoration(),
+                                  inputFormatters: [
+                                    LengthLimitingTextInputFormatter(
+                                      ProfileFieldValidation
+                                          .personDisplayNameMaxLength,
+                                    ),
+                                  ],
                                   onChanged: (_) => setState(() {}),
                                 ),
                                 const SizedBox(height: 14),
@@ -394,7 +445,9 @@ class _CaregiverAccountCreationStep2State
                                         onChanged: (v) {
                                           setState(() {
                                             child.month = v;
-                                            _clampDayIfNeeded(child);
+                                            _clearDayIfInvalidForMonthYear(
+                                              child,
+                                            );
                                           });
                                         },
                                       ),
@@ -408,19 +461,21 @@ class _CaregiverAccountCreationStep2State
                                         onChanged: (v) {
                                           setState(() {
                                             child.year = v;
-                                            _clampDayIfNeeded(child);
+                                            _clearDayIfInvalidForMonthYear(
+                                              child,
+                                            );
                                           });
                                         },
                                       ),
                                     ),
                                   ],
                                 ),
-                                if (_getDateValidationError(child) != null) ...[
+                                if (dateOfBirthError != null) ...[
                                   const SizedBox(height: 6),
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: Text(
-                                      _getDateValidationError(child)!,
+                                      dateOfBirthError,
                                       style: const TextStyle(
                                         color: BColors.validationError,
                                         fontSize: 12,
@@ -528,19 +583,6 @@ class _CaregiverAccountCreationStep2State
               ),
 
               if (_isSubmitting) const BouhLoadingOverlay(),
-
-              Positioned(
-                top: 8,
-                right: 16,
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 20,
-                    color: BColors.textDarkestBlue,
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
             ],
           ),
         ),
