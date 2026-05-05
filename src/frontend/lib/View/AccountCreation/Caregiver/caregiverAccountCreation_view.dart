@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
-import 'package:bouh/utils/profile_field_validation.dart';
+import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:bouh/dto/caregiverSignupData.dart';
 import 'package:bouh/View/AccountCreation/Caregiver/AddChildern_view.dart';
 import 'package:bouh/widgets/password_strength_widget.dart';
@@ -62,6 +62,9 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
   bool _confirmPasswordTouched = false;
   bool _nameTouched = false;
 
+  /// When true, email validator runs even if the email field still has focus (full-form submit).
+  bool _runningFormValidation = false;
+
   /// When true, password is hidden. Icons: visibility_off = masked, visibility = plain text.
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -77,11 +80,13 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
   }
 
   void _onEmailFocusChange() {
-    if (!_emailFocusNode.hasFocus) {
-      _emailTouched = true;
+    if (_emailFocusNode.hasFocus) {
       _emailFieldKey.currentState?.validate();
-      if (mounted) setState(() {});
+      return;
     }
+    _emailTouched = true;
+    _emailFieldKey.currentState?.validate();
+    if (mounted) setState(() {});
   }
 
   void _onPasswordFocusChange() {
@@ -103,6 +108,7 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
   void _onNameFocusChange() {
     if (!_nameFocusNode.hasFocus) {
       _nameTouched = true;
+      ProfileFieldValidation.syncTextControllerToNormalizedPersonName(_nameCtrl);
       _nameFieldKey.currentState?.validate();
       if (mounted) setState(() {});
     }
@@ -181,10 +187,14 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
       _nameTouched = true;
     });
     // Run all validators; if any fail, stay on this screen.
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    _runningFormValidation = true;
+    final formOk = _formKey.currentState?.validate() ?? false;
+    _runningFormValidation = false;
+    if (!formOk) return;
 
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
+    ProfileFieldValidation.syncTextControllerToNormalizedPersonName(_nameCtrl);
     final caregiverName = ProfileFieldValidation.normalizePersonName(
       _nameCtrl.text,
     );
@@ -326,14 +336,15 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
                         controller: _emailCtrl,
                         focusNode: _emailFocusNode,
                         fieldKey: _emailFieldKey,
-                        validator: (v) => _emailTouched
-                            ? ProfileFieldValidation.accountEmail(v)
-                            : null,
+                        validator: (v) {
+                          if (!_emailTouched) return null;
+                          if (_emailFocusNode.hasFocus && !_runningFormValidation) {
+                            return null;
+                          }
+                          return ProfileFieldValidation.accountEmail(v);
+                        },
                         textInputAction: TextInputAction.next,
                         onChanged: (_) {
-                          if (_emailTouched) {
-                            _emailFieldKey.currentState?.validate();
-                          }
                           if (_confirmPasswordCtrl.text.isNotEmpty) {
                             _confirmPasswordTouched = true;
                           }

@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+
 /// Shared validation for account fields (email), names, IBAN suffix, and SCFHS.
 /// Keeps login, registration, and profile edit consistent.
 class ProfileFieldValidation {
@@ -9,6 +11,27 @@ class ProfileFieldValidation {
     return value.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
+  static void syncTextControllerToNormalizedPersonName(
+    TextEditingController controller,
+  ) {
+    final normalized = normalizePersonName(controller.text);
+    if (controller.text == normalized) return;
+    controller.value = TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+  }
+  static void syncTextControllerToExactText(
+    TextEditingController controller,
+    String text,
+  ) {
+    if (controller.text == text) return;
+    controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+
   /// One qualification line (Arabic text, digits, commas): same whitespace rules as [normalizePersonName].
   static String normalizeQualificationLine(String? value) =>
       normalizePersonName(value);
@@ -16,7 +39,6 @@ class ProfileFieldValidation {
   /// Unified max length for caregiver name, doctor name (after honorific), and child name.
   static const int personDisplayNameMaxLength = 20;
 
-  /// Legacy alias for [personDisplayNameMaxLength].
   static const int caregiverOrDoctorNameMaxLength = personDisplayNameMaxLength;
   static const int ibanSuffixDigitCount = 22;
   static const int scfhsDigitCount = 10;
@@ -97,7 +119,7 @@ class ProfileFieldValidation {
   static final RegExp _latinLetters = RegExp(r'[A-Za-z]');
 
   static const String _doctorNameEnglishNotAllowedMessage =
-      'يرجى إدخال الاسم باللغة العربية فقط.';
+      'يرجى إدخال الاسم باللغة العربية فقط';
 
   static const String _doctorNameInvalidCharsMessage =
       'لا يُسمح بإدخال أرقام أو رموز خاصة';

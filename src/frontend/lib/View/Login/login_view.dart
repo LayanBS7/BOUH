@@ -1,6 +1,8 @@
+import 'dart:async' show TimeoutException;
 import 'dart:io' show SocketException;
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' show ClientException;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
@@ -12,7 +14,7 @@ import 'package:bouh/widgets/confirmation_popup.dart';
 import 'package:bouh/widgets/email_reset_popup.dart';
 import 'package:bouh/widgets/doctor_pending_popup.dart';
 import 'package:bouh/widgets/loading_overlay.dart';
-import 'package:bouh/utils/profile_field_validation.dart';
+import 'package:bouh/widgets/profile_field_validation.dart';
 
 /// Login: validate form → AuthService.login(email, password) → backend returns uid, role → route by role.
 class LoginView extends StatefulWidget {
@@ -37,6 +39,9 @@ class _LoginViewState extends State<LoginView> {
   static const String _kInvalidCredentialsMessage =
       'البريد الإلكتروني أو كلمة المرور غير صحيحة. لم يتم العثور على الحساب.';
 
+  static const String _kNetworkFailureMessage =
+      'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
+
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -54,17 +59,23 @@ class _LoginViewState extends State<LoginView> {
   bool _emailTouched = false;
   bool _passwordTouched = false;
 
+  /// When true, email validator runs even if the email field still has focus (full-form submit).
+  bool _runningFormValidation = false;
+
   static String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) return 'يرجى إدخال كلمة المرور';
     return null;
   }
 
   void _onEmailFocusChange() {
-    if (!_emailFocusNode.hasFocus) {
-      _emailTouched = true;
+    if (_emailFocusNode.hasFocus) {
+      if (_emailError != null) setState(() => _emailError = null);
       _emailFieldKey.currentState?.validate();
-      if (mounted) setState(() {});
+      return;
     }
+    _emailTouched = true;
+    _emailFieldKey.currentState?.validate();
+    if (mounted) setState(() {});
   }
 
   void _onPasswordFocusChange() {
@@ -114,7 +125,10 @@ class _LoginViewState extends State<LoginView> {
       _passwordTouched = true;
     });
 
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    _runningFormValidation = true;
+    final formOk = _formKey.currentState?.validate() ?? false;
+    _runningFormValidation = false;
+    if (!formOk) return;
 
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
@@ -159,8 +173,9 @@ class _LoginViewState extends State<LoginView> {
       if (!mounted) return;
       setState(() {
         _isLoggingIn = false;
-        _passwordError =
-            'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
+        _emailError = null;
+        _passwordError = null;
+        _loginErrorMessage = _kNetworkFailureMessage;
       });
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -191,18 +206,27 @@ class _LoginViewState extends State<LoginView> {
             _loginErrorMessage = null;
             break;
           default:
-            _emailError = null;
-            _passwordError = _mapLoginErrorToMessage(e);
-            _loginErrorMessage = null;
+            final mapped = _mapLoginErrorToMessage(e);
+            if (mapped == _kInvalidCredentialsMessage ||
+                mapped == _kNetworkFailureMessage) {
+              _emailError = null;
+              _passwordError = null;
+              _loginErrorMessage = mapped;
+            } else {
+              _emailError = null;
+              _passwordError = mapped;
+              _loginErrorMessage = null;
+            }
         }
       });
     } catch (e) {
       if (!mounted) return;
       final mappedMessage = _mapLoginErrorToMessage(e);
       final isInvalidCredentials = mappedMessage == _kInvalidCredentialsMessage;
+      final isNetworkFailure = mappedMessage == _kNetworkFailureMessage;
       setState(() {
         _isLoggingIn = false;
-        if (isInvalidCredentials) {
+        if (isInvalidCredentials || isNetworkFailure) {
           _emailError = null;
           _passwordError = null;
           _loginErrorMessage = mappedMessage;
@@ -216,6 +240,13 @@ class _LoginViewState extends State<LoginView> {
   }
 
   String _mapLoginErrorToMessage(Object e) {
+    if (e is FirebaseAuthException && e.code == 'network-request-failed') {
+      return _kNetworkFailureMessage;
+    }
+    if (e is ClientException || e is TimeoutException) {
+      return _kNetworkFailureMessage;
+    }
+
     final msg = e.toString();
 
     if (msg.contains('wrong_credentials') ||
@@ -225,10 +256,13 @@ class _LoginViewState extends State<LoginView> {
     }
 
     if (e is SocketException) {
-      return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
+      return _kNetworkFailureMessage;
     }
-    if (msg.contains('SocketException') || msg.contains('Failed host lookup')) {
-      return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
+    if (msg.contains('SocketException') ||
+        msg.contains('Failed host lookup') ||
+        msg.contains('network-request-failed') ||
+        msg.contains('ClientException')) {
+      return _kNetworkFailureMessage;
     }
 
     if (msg.contains('UNAUTHORIZED') || msg.contains('401')) {
@@ -327,9 +361,13 @@ class _LoginViewState extends State<LoginView> {
                           ),
                           focusNode: _emailFocusNode,
                           fieldKey: _emailFieldKey,
-                          validator: (v) => _emailTouched
-                              ? ProfileFieldValidation.accountEmail(v)
-                              : null,
+                          validator: (v) {
+                            if (!_emailTouched) return null;
+                            if (_emailFocusNode.hasFocus && !_runningFormValidation) {
+                              return null;
+                            }
+                            return ProfileFieldValidation.accountEmail(v);
+                          },
                           textInputAction: TextInputAction.next,
                           serverError: _emailError,
                           onChanged: () {
@@ -340,9 +378,6 @@ class _LoginViewState extends State<LoginView> {
                                 _loginErrorMessage = null;
                               }
                             });
-                            if (_emailTouched) {
-                              _emailFieldKey.currentState?.validate();
-                            }
                           },
                         ),
                         const SizedBox(height: 14),

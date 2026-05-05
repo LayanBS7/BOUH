@@ -7,7 +7,7 @@ import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/dto/doctorSignupData.dart';
 import 'package:bouh/dto/doctorDto.dart';
 import 'package:bouh/authentication/AuthService.dart';
-import 'package:bouh/utils/profile_field_validation.dart';
+import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:bouh/View/AccountCreation/verify_email_view.dart';
 import 'package:bouh/widgets/loading_overlay.dart';
 
@@ -24,6 +24,9 @@ class DoctorAccountCreationStep2 extends StatefulWidget {
 
 class _DoctorAccountCreationStep2State
     extends State<DoctorAccountCreationStep2> {
+  static const String _networkFailureMessage =
+      'تأكد من أنك متصل بالإنترنت وحاول مرة أخرى.';
+
   static const int _minQualifications = 1;
   static const int _maxQualifications = 12;
 
@@ -41,6 +44,7 @@ class _DoctorAccountCreationStep2State
   final _classificationFocusNode = FocusNode();
   final _ibanFocusNode = FocusNode();
 
+  /// When false, qualification inline errors are hidden (fresh step). Button still uses validation.
   bool _qualificationsTouched = false;
   bool _classificationTouched = false;
   bool _ibanTouched = false;
@@ -100,7 +104,7 @@ class _DoctorAccountCreationStep2State
   final List<String> _yearsList = const ['1', '2', '3', '4', '+5'];
 
   bool get _isFormComplete =>
-      _qualificationCtrls.any((c) => c.text.trim().isNotEmpty) &&
+      _validateQualificationsList() == null &&
       _classificationCtrl.text.trim().isNotEmpty &&
       _ibanSuffixCtrl.text.trim().length == 22 &&
       _specialty != null &&
@@ -114,12 +118,12 @@ class _DoctorAccountCreationStep2State
   @override
   void initState() {
     super.initState();
-    _addQualification();
+    _addQualification(fromInitialSetup: true);
     _classificationFocusNode.addListener(_onClassificationFocusChange);
     _ibanFocusNode.addListener(_onIbanFocusChange);
   }
 
-  void _addQualification() {
+  void _addQualification({bool fromInitialSetup = false}) {
     if (_qualificationCtrls.length >= _maxQualifications) return;
     final ctrl = TextEditingController();
     final focusNode = FocusNode();
@@ -133,6 +137,10 @@ class _DoctorAccountCreationStep2State
     });
     _qualificationCtrls.add(ctrl);
     _qualificationFocusNodes.add(focusNode);
+    if (!fromInitialSetup) {
+      _qualificationsTouched = true;
+      _qualificationsError = _validateQualificationsList();
+    }
     if (mounted) setState(() {});
   }
 
@@ -142,6 +150,7 @@ class _DoctorAccountCreationStep2State
     _qualificationFocusNodes[index].dispose();
     _qualificationCtrls.removeAt(index);
     _qualificationFocusNodes.removeAt(index);
+    _qualificationsTouched = true;
     _qualificationsError = _validateQualificationsList();
     if (mounted) setState(() {});
   }
@@ -241,10 +250,9 @@ class _DoctorAccountCreationStep2State
         if (e is FirebaseAuthException && e.code == 'email-already-in-use') {
           message = 'البريد الإلكتروني مستخدم بالفعل بحساب آخر.';
         } else if (e is SocketException || e is TimeoutException) {
-          message =
-              'الخادم لا يستجيب أو لا يوجد اتصال. تحقق من الإنترنت وحاول مرة أخرى.';
+          message = _networkFailureMessage;
         } else {
-          message = 'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.';
+          message = 'تعذر إنشاء الحساب. تحقق من الاتصال وحاول مرة أخرى.';
         }
         setState(() {
           _isSubmitting = false;
@@ -441,10 +449,9 @@ class _DoctorAccountCreationStep2State
                                         LengthLimitingTextInputFormatter(70),
                                       ],
                                       onChanged: (_) {
-                                        if (_qualificationsTouched) {
-                                          _qualificationsError =
-                                              _validateQualificationsList();
-                                        }
+                                        _qualificationsTouched = true;
+                                        _qualificationsError =
+                                            _validateQualificationsList();
                                         setState(() {});
                                       },
                                     ),
@@ -493,7 +500,8 @@ class _DoctorAccountCreationStep2State
                                 ),
                               ),
                             ),
-                          if (_qualificationsError != null) ...[
+                          if (_qualificationsTouched &&
+                              _qualificationsError != null) ...[
                             const SizedBox(height: 4),
                             Align(
                               alignment: Alignment.centerRight,
