@@ -1,15 +1,12 @@
 package com.bouh.backend.model.repository;
-
 import com.bouh.backend.model.Dto.appointmentDto;
 import com.bouh.backend.model.Dto.caregiverDto;
 import com.bouh.backend.model.Dto.childDto;
-import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import com.google.firebase.auth.FirebaseAuth;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
-
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Date;
@@ -32,7 +29,6 @@ public class caregiverRepo {
         this.firestore = firestore; // set the instance so this repo use it
         this.appointmentRepo = appointmentRepo;
     }
-
     /*
      * Creates a caregiver Account
      */
@@ -105,6 +101,8 @@ public class caregiverRepo {
      */
     public void deleteCaregiver(String uid) {
         try {
+
+            // Delete any upcoming appointments without a refund
             List<appointmentDto> upcoming = appointmentRepo.findUpcomingByCaregiverId(uid);
             for (appointmentDto appt : upcoming) {
                 try {
