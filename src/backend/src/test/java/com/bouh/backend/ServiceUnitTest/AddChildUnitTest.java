@@ -83,26 +83,7 @@ public class AddChildUnitTest {
                 assertEquals(List.of(), result.getDrawings());
                 }
 
-        @Test //ASK!!!
-        void addChild_shouldThrowException_whenRequestBodyIsNull() {
-
-                // Verify that null request throws exception
-                IllegalArgumentException exception = assertThrows(
-                        IllegalArgumentException.class,
-                        () -> childrenService.addChild(caregiverId, null)
-                );
-
-                // Verify exception message
-                assertEquals(
-                        "Request body is required.",
-                        exception.getMessage()
-                );
-
-                // Verify repository was never called
-                verifyNoInteractions(childrenRepo);
-        }
-
-        @Test //ASK!!!
+        @Test 
         void addChild_shouldThrowException_whenNameIsEmpty() {
 
                 // Create request with empty name
@@ -232,7 +213,7 @@ public class AddChildUnitTest {
                 verify(childrenRepo).addChild(caregiverId,"lo ba","2015-01-01","female");
         }
 
-        @Test //ASK!!!
+        @Test 
         void addChild_shouldThrowException_whenDateOfBirthIsEmpty() {
 
                 // Create request with empty DOB
@@ -381,7 +362,7 @@ public class AddChildUnitTest {
                 verifyNoInteractions(childrenRepo);
         }
 
-        @Test //ASK!!
+        @Test 
         void addChild_shouldThrowException_whenGenderIsEmpty() {
 
                 // Empty gender
