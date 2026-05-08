@@ -604,7 +604,6 @@ if (!isCaregiverOwner && !isDoctorOwner) {
 
     Duration remaining = Duration.between(now, start);
 
-    // مسموح فقط إذا باقي أكثر من 30 دقيقة (انا لبى عدلته عشان الايرور مدري صح ولا لا حطيت الي اقترحه)
     if (remaining.minusMinutes(30).isNegative() || remaining.minusMinutes(30).isZero()) {
         throw new IllegalStateException("لا يمكن إلغاء الموعد قبل أقل من 30 دقيقة من وقت البدء");
     }
