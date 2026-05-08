@@ -6,7 +6,6 @@ import 'package:bouh/dto/Meeting/join_meeting_response_dto.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import '../../theme/base_themes/colors.dart';
 import 'package:bouh/View/viewAppointments/widgets/appointmentCard.dart';
 import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
