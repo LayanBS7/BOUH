@@ -43,8 +43,12 @@ public class ViewAppointmentsCaregiverUnitTest {
         private AppointmentsService appointmentsService;
 
         private static final String CAREGIVER_ID = "cgVr8KmN2pQwYx5Lt7BzAhD3F1Js";
-        private static final String DOCTOR_ID    = "vj3inj1KveMSSbTo2G8z04O252l1";
-        private static final String CHILD_ID     = "chK7mP3nQrJ8wXyZtBvL";
+        private static final String DOCTOR_ID = "vj3inj1KveMSSbTo2G8z04O252l1";
+        private static final String CHILD_ID = "chK7mP3nQrJ8wXyZtBvL";
+        private static final String DOCTOR_NAME = "د. سارة خالد";
+        private static final String DOCTOR_AREA = "حزن";
+        private static final String DOCTOR_PROFILE_OBJECT_PATH = "doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg";
+        private static final String CHILD_NAME = "ليلى";
 
         /*
          * Empty case for upcoming: when the repository returns no upcoming
@@ -86,7 +90,7 @@ public class ViewAppointmentsCaregiverUnitTest {
         }
 
         /*
-         * get sorted upcoming appointments view
+         * get sorted upcoming appointments view for caregivers
          */
         @Test
         void getUpcomingAppointments_shouldBeOrderedNearestFirstAndEnriched()
@@ -97,25 +101,17 @@ public class ViewAppointmentsCaregiverUnitTest {
                 String idIn7Days = "apY3zA4bC5dE6fG7hI8j";
 
                 Instant base = Instant.now();
-                appointmentDto in7Days = buildBasicAppointment(idIn7Days, base.plusSeconds(7 * 86400));
-                appointmentDto in1Day  = buildBasicAppointment(idIn1Day,  base.plusSeconds(86400));
-                appointmentDto in3Days = buildBasicAppointment(idIn3Days, base.plusSeconds(3 * 86400));
+                appointmentDto in7Days = buildBasicAppointment(idIn7Days, base.plusSeconds(7 * 86400), 1, false);
+                appointmentDto in1Day = buildBasicAppointment(idIn1Day, base.plusSeconds(86400), 1, false);
+                appointmentDto in3Days = buildBasicAppointment(idIn3Days, base.plusSeconds(3 * 86400), 1, false);
 
-                // Mock the appointment repository to return the scrambled list
                 when(appointmentRepo.findUpcomingByCaregiverId(CAREGIVER_ID))
                                 .thenReturn(new ArrayList<>(List.of(in7Days, in1Day, in3Days)));
 
-                // Mock the doctor, child, and image repositories with populated values
-                doctorDto doctor = new doctorDto();
-                doctor.setDoctorId(DOCTOR_ID);
-                doctor.setName("د. سارة خالد");
-                doctor.setAreaOfKnowledge("حزن");
-                doctor.setProfilePhotoURL("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg");
-                doctor.setQualifications(List.of("دكتوراه في علم النفس", "ماجستير في الإرشاد"));
-                when(doctorRepo.findByUid(DOCTOR_ID)).thenReturn(doctor);
-                when(childrenRepo.findChildName(CAREGIVER_ID, CHILD_ID)).thenReturn("ليلى");
-                when(gcsImageService.generateDownloadUrl("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg"))
-                                .thenReturn("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg");
+                when(doctorRepo.findByUid(DOCTOR_ID)).thenReturn(doctorDtoForCaregiverView());
+                when(childrenRepo.findChildName(CAREGIVER_ID, CHILD_ID)).thenReturn(CHILD_NAME);
+                when(gcsImageService.generateDownloadUrl(DOCTOR_PROFILE_OBJECT_PATH))
+                                .thenReturn(DOCTOR_PROFILE_OBJECT_PATH);
 
                 // Call the method under test
                 List<upcomingAppointmentDto> result = appointmentsService.getUpcomingAppointments(CAREGIVER_ID);
@@ -130,19 +126,18 @@ public class ViewAppointmentsCaregiverUnitTest {
                 assertEquals(idIn3Days, result.get(1).getAppointmentId());
                 assertEquals(idIn7Days, result.get(2).getAppointmentId());
 
-                // Verify that all fields in the returned DTO match the expected values
                 upcomingAppointmentDto first = result.get(0);
-                assertEquals("د. سارة خالد",                 first.getDoctorName());
-                assertEquals("حزن",                          first.getDoctorAreaOfKnowledge());
-                assertEquals("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg", first.getDoctorProfilePhotoURL());
-                assertEquals("ليلى",                               first.getChildName());
-                assertEquals(CHILD_ID,                              first.getChildId());
-                assertEquals(DOCTOR_ID,                             first.getDoctorId());
+                assertEquals(DOCTOR_NAME, first.getDoctorName());
+                assertEquals(DOCTOR_AREA, first.getDoctorAreaOfKnowledge());
+                assertEquals(DOCTOR_PROFILE_OBJECT_PATH, first.getDoctorProfilePhotoURL());
+                assertEquals(CHILD_NAME, first.getChildName());
+                assertEquals(Integer.valueOf(1), first.getStatus());
+                assertEquals(Boolean.FALSE, first.getRated());
         }
 
 
         /*
-         * get sorted previous appointments view
+         * get sorted previous appointments for caregivers
          */
         @Test
         void getPreviousAppointments_shouldBeOrderedNewestFirstAndEnriched()
@@ -153,27 +148,22 @@ public class ViewAppointmentsCaregiverUnitTest {
                 String idSevenDaysAgo = "apI3jK4lM5nO6pQ7rS8t";
 
                 Instant base = Instant.now();
-                appointmentDto sevenDaysAgo = buildBasicAppointment(idSevenDaysAgo, base.minusSeconds(7 * 86400));
-                appointmentDto oneDayAgo    = buildBasicAppointment(idOneDayAgo,    base.minusSeconds(86400));
-                appointmentDto threeDaysAgo = buildBasicAppointment(idThreeDaysAgo, base.minusSeconds(3 * 86400));
+                appointmentDto sevenDaysAgo = buildBasicAppointment(
+                                idSevenDaysAgo, base.minusSeconds(7 * 86400), null, true);
+                appointmentDto oneDayAgo = buildBasicAppointment(
+                                idOneDayAgo, base.minusSeconds(86400), 1, true);
+                appointmentDto threeDaysAgo = buildBasicAppointment(
+                                idThreeDaysAgo, base.minusSeconds(3 * 86400), 0, false);
 
-                // Mock the appointment repositories: scrambled past list, empty same-day list
                 when(appointmentRepo.findPastByCaregiverId(CAREGIVER_ID))
                                 .thenReturn(new ArrayList<>(List.of(sevenDaysAgo, oneDayAgo, threeDaysAgo)));
                 when(appointmentRepo.findUpcomingByCaregiverId(CAREGIVER_ID))
                                 .thenReturn(new ArrayList<>());
 
-                // Mock the doctor, child, and image repositories with populated values
-                doctorDto doctor = new doctorDto();
-                doctor.setDoctorId(DOCTOR_ID);
-                doctor.setName("د. سارة خالد");
-                doctor.setAreaOfKnowledge("حزن");
-                doctor.setProfilePhotoURL("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg");
-                doctor.setQualifications(List.of("دكتوراه في علم النفس", "ماجستير في الإرشاد"));
-                when(doctorRepo.findByUid(DOCTOR_ID)).thenReturn(doctor);
-                when(childrenRepo.findChildName(CAREGIVER_ID, CHILD_ID)).thenReturn("ليلى");
-                when(gcsImageService.generateDownloadUrl("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg"))
-                                .thenReturn("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg");
+                when(doctorRepo.findByUid(DOCTOR_ID)).thenReturn(doctorDtoForCaregiverView());
+                when(childrenRepo.findChildName(CAREGIVER_ID, CHILD_ID)).thenReturn(CHILD_NAME);
+                when(gcsImageService.generateDownloadUrl(DOCTOR_PROFILE_OBJECT_PATH))
+                                .thenReturn(DOCTOR_PROFILE_OBJECT_PATH);
 
                 // Call the method under test
                 List<upcomingAppointmentDto> result = appointmentsService.getPreviousAppointments(CAREGIVER_ID);
@@ -189,30 +179,43 @@ public class ViewAppointmentsCaregiverUnitTest {
                 assertEquals(idThreeDaysAgo, result.get(1).getAppointmentId());
                 assertEquals(idSevenDaysAgo, result.get(2).getAppointmentId());
 
-                // Verify that all fields in the returned DTO match the expected values
                 upcomingAppointmentDto first = result.get(0);
-                assertEquals("د. سارة خالد",                 first.getDoctorName());
-                assertEquals("حزن",                          first.getDoctorAreaOfKnowledge());
-                assertEquals("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg", first.getDoctorProfilePhotoURL());
-                assertEquals("ليلى",                               first.getChildName());
-                assertEquals(CHILD_ID,                              first.getChildId());
-                assertEquals(DOCTOR_ID,                             first.getDoctorId());
+                assertEquals(DOCTOR_NAME, first.getDoctorName());
+                assertEquals(DOCTOR_AREA, first.getDoctorAreaOfKnowledge());
+                assertEquals(DOCTOR_PROFILE_OBJECT_PATH, first.getDoctorProfilePhotoURL());
+                assertEquals(CHILD_NAME, first.getChildName());
+                assertEquals(Integer.valueOf(1), first.getStatus());
+                assertEquals(Boolean.TRUE, first.getRated());
+
+                upcomingAppointmentDto second = result.get(1);
+                assertEquals(DOCTOR_NAME, second.getDoctorName());
+                assertEquals(Integer.valueOf(0), second.getStatus());
+                assertEquals(Boolean.FALSE, second.getRated());
+
+                upcomingAppointmentDto third = result.get(2);
+                assertEquals(DOCTOR_NAME, third.getDoctorName());
+                assertEquals(Integer.valueOf(0), third.getStatus());
+                assertEquals(Boolean.TRUE, third.getRated());
         }
 
-        /*
-         * Helper: builds a minimal appointmentDto with the given id and start
-         * time. Used by sort tests that don't care about slot-of-day boundaries.
-         */
-        private appointmentDto buildBasicAppointment(String id, Instant when) {
+        private static doctorDto doctorDtoForCaregiverView() {
+                doctorDto d = new doctorDto();
+                d.setName(DOCTOR_NAME);
+                d.setAreaOfKnowledge(DOCTOR_AREA);
+                d.setProfilePhotoURL(DOCTOR_PROFILE_OBJECT_PATH);
+                return d;
+        }
+
+        private appointmentDto buildBasicAppointment(
+                        String id, Instant when, Integer status, Boolean rated) {
                 appointmentDto a = new appointmentDto();
                 a.setAppointmentId(id);
                 a.setCaregiverId(CAREGIVER_ID);
                 a.setDoctorId(DOCTOR_ID);
                 a.setChildId(CHILD_ID);
-                a.setStartDateTime(
-                                Timestamp.ofTimeSecondsAndNanos(when.getEpochSecond(), 0));
-                a.setStatus(1);
-                a.setRated(false);
+                a.setStartDateTime(Timestamp.ofTimeSecondsAndNanos(when.getEpochSecond(), 0));
+                a.setStatus(status);
+                a.setRated(rated);
                 return a;
         }
 }
