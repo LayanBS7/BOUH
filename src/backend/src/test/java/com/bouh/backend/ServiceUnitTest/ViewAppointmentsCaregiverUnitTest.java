@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.bouh.backend.model.Dto.appointmentDto;
+import com.bouh.backend.model.Dto.doctorDto;
 import com.bouh.backend.model.Dto.upcomingAppointmentDto;
 import com.bouh.backend.model.repository.AppointmentRepo;
 import com.bouh.backend.model.repository.doctorRepo;
@@ -42,7 +43,7 @@ public class ViewAppointmentsCaregiverUnitTest {
         private AppointmentsService appointmentsService;
 
         private static final String CAREGIVER_ID = "cgVr8KmN2pQwYx5Lt7BzAhD3F1Js";
-        private static final String DOCTOR_ID    = "drMq6JvW4nXkZsP9LbCyTfHa8RuE";
+        private static final String DOCTOR_ID    = "vj3inj1KveMSSbTo2G8z04O252l1";
         private static final String CHILD_ID     = "chK7mP3nQrJ8wXyZtBvL";
 
         /*
@@ -85,12 +86,10 @@ public class ViewAppointmentsCaregiverUnitTest {
         }
 
         /*
-         * Sort test for upcoming: repo returns appointments in scrambled order
-         * on purpose; the service is responsible for sorting them nearest-first
-         * before returning.
+         * get sorted upcoming appointments view
          */
         @Test
-        void getUpcomingAppointments_shouldBeOrderedNearestFirst()
+        void getUpcomingAppointments_shouldBeOrderedNearestFirstAndEnriched()
                         throws ExecutionException, InterruptedException {
 
                 String idIn1Day  = "apA1bC2dE3fG4hI5jK6l";
@@ -102,26 +101,51 @@ public class ViewAppointmentsCaregiverUnitTest {
                 appointmentDto in1Day  = buildBasicAppointment(idIn1Day,  base.plusSeconds(86400));
                 appointmentDto in3Days = buildBasicAppointment(idIn3Days, base.plusSeconds(3 * 86400));
 
+                // Mock the appointment repository to return the scrambled list
                 when(appointmentRepo.findUpcomingByCaregiverId(CAREGIVER_ID))
                                 .thenReturn(new ArrayList<>(List.of(in7Days, in1Day, in3Days)));
 
+                // Mock the doctor, child, and image repositories with populated values
+                doctorDto doctor = new doctorDto();
+                doctor.setDoctorId(DOCTOR_ID);
+                doctor.setName("د. سارة خالد");
+                doctor.setAreaOfKnowledge("حزن");
+                doctor.setProfilePhotoURL("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg");
+                doctor.setQualifications(List.of("دكتوراه في علم النفس", "ماجستير في الإرشاد"));
+                when(doctorRepo.findByUid(DOCTOR_ID)).thenReturn(doctor);
+                when(childrenRepo.findChildName(CAREGIVER_ID, CHILD_ID)).thenReturn("ليلى");
+                when(gcsImageService.generateDownloadUrl("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg"))
+                                .thenReturn("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg");
+
+                // Call the method under test
                 List<upcomingAppointmentDto> result = appointmentsService.getUpcomingAppointments(CAREGIVER_ID);
 
+                // Verify that the repository method was called with the correct caregiverId
                 verify(appointmentRepo).findUpcomingByCaregiverId(CAREGIVER_ID);
+
+                // Verify that the appointments are sorted nearest-first
                 assertNotNull(result);
                 assertEquals(3, result.size());
                 assertEquals(idIn1Day,  result.get(0).getAppointmentId());
                 assertEquals(idIn3Days, result.get(1).getAppointmentId());
                 assertEquals(idIn7Days, result.get(2).getAppointmentId());
+
+                // Verify that all fields in the returned DTO match the expected values
+                upcomingAppointmentDto first = result.get(0);
+                assertEquals("د. سارة خالد",                 first.getDoctorName());
+                assertEquals("حزن",                          first.getDoctorAreaOfKnowledge());
+                assertEquals("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg", first.getDoctorProfilePhotoURL());
+                assertEquals("ليلى",                               first.getChildName());
+                assertEquals(CHILD_ID,                              first.getChildId());
+                assertEquals(DOCTOR_ID,                             first.getDoctorId());
         }
 
+
         /*
-         * Sort test for previous: repo returns past appointments in scrambled
-         * order on purpose; the service is responsible for sorting them
-         * newest-first before returning.
+         * get sorted previous appointments view
          */
         @Test
-        void getPreviousAppointments_shouldBeOrderedNewestFirst()
+        void getPreviousAppointments_shouldBeOrderedNewestFirstAndEnriched()
                         throws ExecutionException, InterruptedException {
 
                 String idOneDayAgo    = "apK1lM2nO3pQ4rS5tU6v";
@@ -133,20 +157,46 @@ public class ViewAppointmentsCaregiverUnitTest {
                 appointmentDto oneDayAgo    = buildBasicAppointment(idOneDayAgo,    base.minusSeconds(86400));
                 appointmentDto threeDaysAgo = buildBasicAppointment(idThreeDaysAgo, base.minusSeconds(3 * 86400));
 
+                // Mock the appointment repositories: scrambled past list, empty same-day list
                 when(appointmentRepo.findPastByCaregiverId(CAREGIVER_ID))
                                 .thenReturn(new ArrayList<>(List.of(sevenDaysAgo, oneDayAgo, threeDaysAgo)));
                 when(appointmentRepo.findUpcomingByCaregiverId(CAREGIVER_ID))
                                 .thenReturn(new ArrayList<>());
 
+                // Mock the doctor, child, and image repositories with populated values
+                doctorDto doctor = new doctorDto();
+                doctor.setDoctorId(DOCTOR_ID);
+                doctor.setName("د. سارة خالد");
+                doctor.setAreaOfKnowledge("حزن");
+                doctor.setProfilePhotoURL("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg");
+                doctor.setQualifications(List.of("دكتوراه في علم النفس", "ماجستير في الإرشاد"));
+                when(doctorRepo.findByUid(DOCTOR_ID)).thenReturn(doctor);
+                when(childrenRepo.findChildName(CAREGIVER_ID, CHILD_ID)).thenReturn("ليلى");
+                when(gcsImageService.generateDownloadUrl("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg"))
+                                .thenReturn("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg");
+
+                // Call the method under test
                 List<upcomingAppointmentDto> result = appointmentsService.getPreviousAppointments(CAREGIVER_ID);
 
+                // Verify that both repository methods were called with the correct caregiverId
                 verify(appointmentRepo).findPastByCaregiverId(CAREGIVER_ID);
                 verify(appointmentRepo).findUpcomingByCaregiverId(CAREGIVER_ID);
+
+                // Verify that the appointments are sorted newest-first
                 assertNotNull(result);
                 assertEquals(3, result.size());
                 assertEquals(idOneDayAgo,    result.get(0).getAppointmentId());
                 assertEquals(idThreeDaysAgo, result.get(1).getAppointmentId());
                 assertEquals(idSevenDaysAgo, result.get(2).getAppointmentId());
+
+                // Verify that all fields in the returned DTO match the expected values
+                upcomingAppointmentDto first = result.get(0);
+                assertEquals("د. سارة خالد",                 first.getDoctorName());
+                assertEquals("حزن",                          first.getDoctorAreaOfKnowledge());
+                assertEquals("doctorProfileImages/vj3inj1KveMSSbTo2G8z04O252l1_1778325911255.jpg", first.getDoctorProfilePhotoURL());
+                assertEquals("ليلى",                               first.getChildName());
+                assertEquals(CHILD_ID,                              first.getChildId());
+                assertEquals(DOCTOR_ID,                             first.getDoctorId());
         }
 
         /*
