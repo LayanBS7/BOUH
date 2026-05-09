@@ -48,6 +48,10 @@ public class ViewAppointmentsCaregiverUnitTest {
         @InjectMocks
         private AppointmentsService appointmentsService;
 
+        /*
+         * Empty case for upcoming: when the repository returns no upcoming
+         * appointments, the service must return a non-null empty list.
+         */
         @Test
         void getUpcomingAppointments_shouldReturnEmptyList()
                         throws ExecutionException, InterruptedException {
@@ -62,6 +66,10 @@ public class ViewAppointmentsCaregiverUnitTest {
                 assertTrue(result.isEmpty());
         }
 
+        /*
+         * Empty case for previous: when both the past repo and the upcoming
+         * repo return empty, the service must return a non-null empty list.
+         */
         @Test
         void getPreviousAppointments_shouldReturnEmptyList()
                         throws ExecutionException, InterruptedException {
@@ -79,9 +87,11 @@ public class ViewAppointmentsCaregiverUnitTest {
                 assertTrue(result.isEmpty());
         }
 
-        // Partition test: the same same-day appointment is fed to BOTH service
-        // methods and must land in upcoming only — never in previous.
-        // assumeTrue skips the test when no future slot exists today (e.g. after 9 PM).
+        /*
+         * Partition test: the same same-day appointment is fed to BOTH service
+         * methods and must land in upcoming only — never in previous.
+         * assumeTrue skips the test when no future slot exists today (e.g. after 9 PM).
+         */
         @Test
         void sameDayNotPassed_shouldBePartitionedToUpcoming()
                         throws ExecutionException, InterruptedException {
@@ -133,9 +143,11 @@ public class ViewAppointmentsCaregiverUnitTest {
                 assertTrue(previous.isEmpty());
         }
 
-        // Partition test: the same same-day appointment is fed to BOTH service
-        // methods and must land in previous only — never in upcoming.
-        // assumeTrue skips the test when the chosen slot has not ended yet today.
+        /*
+         * Partition test: the same same-day appointment is fed to BOTH service
+         * methods and must land in previous only — never in upcoming.
+         * assumeTrue skips the test when the chosen slot has not ended yet today.
+         */
         @Test
         void sameDayPassed_shouldBePartitionedToPrevious()
                         throws ExecutionException, InterruptedException {
@@ -184,8 +196,11 @@ public class ViewAppointmentsCaregiverUnitTest {
                 assertEquals("passedToday", previous.get(0).getAppointmentId());
         }
 
-        // Repo returns appointments in scrambled order on purpose; the service is
-        // responsible for sorting them nearest-first before returning.
+        /*
+         * Sort test for upcoming: repo returns appointments in scrambled order
+         * on purpose; the service is responsible for sorting them nearest-first
+         * before returning.
+         */
         @Test
         void getUpcomingAppointments_shouldBeOrderedNearestFirst()
                         throws ExecutionException, InterruptedException {
@@ -208,8 +223,11 @@ public class ViewAppointmentsCaregiverUnitTest {
                 assertEquals("in7", result.get(2).getAppointmentId());
         }
 
-        // Repo returns past appointments in scrambled order on purpose; the service
-        // is responsible for sorting them newest-first before returning.
+        /*
+         * Sort test for previous: repo returns past appointments in scrambled
+         * order on purpose; the service is responsible for sorting them
+         * newest-first before returning.
+         */
         @Test
         void getPreviousAppointments_shouldBeOrderedNewestFirst()
                         throws ExecutionException, InterruptedException {
@@ -235,6 +253,10 @@ public class ViewAppointmentsCaregiverUnitTest {
                 assertEquals("p7", result.get(2).getAppointmentId());
         }
 
+        /*
+         * Helper: builds a minimal appointmentDto with the given id and start
+         * time. Used by sort tests that don't care about slot-of-day boundaries.
+         */
         private appointmentDto buildBasicAppointment(String id, Instant when) {
                 appointmentDto a = new appointmentDto();
                 a.setAppointmentId(id);
