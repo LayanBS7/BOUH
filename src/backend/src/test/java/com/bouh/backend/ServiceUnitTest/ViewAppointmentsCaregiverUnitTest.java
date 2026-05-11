@@ -100,6 +100,10 @@ public class ViewAppointmentsCaregiverUnitTest {
                 String idIn3Days = "apM7nO8pQ9rS0tU1vW2x";
                 String idIn7Days = "apY3zA4bC5dE6fG7hI8j";
 
+                String idIn1Day  = "apA1bC2dE3fG4hI5jK6l";
+                String idIn3Days = "apM7nO8pQ9rS0tU1vW2x";
+                String idIn7Days = "apY3zA4bC5dE6fG7hI8j";
+
                 Instant base = Instant.now();
                 appointmentDto in7Days = buildBasicAppointment(idIn7Days, base.plusSeconds(7 * 86400), 1, false);
                 appointmentDto in1Day = buildBasicAppointment(idIn1Day, base.plusSeconds(86400), 1, false);
@@ -126,13 +130,9 @@ public class ViewAppointmentsCaregiverUnitTest {
                 assertEquals(idIn3Days, result.get(1).getAppointmentId());
                 assertEquals(idIn7Days, result.get(2).getAppointmentId());
 
-                upcomingAppointmentDto first = result.get(0);
-                assertEquals(DOCTOR_NAME, first.getDoctorName());
-                assertEquals(DOCTOR_AREA, first.getDoctorAreaOfKnowledge());
-                assertEquals(DOCTOR_PROFILE_OBJECT_PATH, first.getDoctorProfilePhotoURL());
-                assertEquals(CHILD_NAME, first.getChildName());
-                assertEquals(Integer.valueOf(1), first.getStatus());
-                assertEquals(Boolean.FALSE, first.getRated());
+                assertCaregiverViewRow(result.get(0), 1, Boolean.FALSE);
+                assertCaregiverViewRow(result.get(1), 1, Boolean.FALSE);
+                assertCaregiverViewRow(result.get(2), 1, Boolean.FALSE);
         }
 
 
@@ -179,23 +179,19 @@ public class ViewAppointmentsCaregiverUnitTest {
                 assertEquals(idThreeDaysAgo, result.get(1).getAppointmentId());
                 assertEquals(idSevenDaysAgo, result.get(2).getAppointmentId());
 
-                upcomingAppointmentDto first = result.get(0);
-                assertEquals(DOCTOR_NAME, first.getDoctorName());
-                assertEquals(DOCTOR_AREA, first.getDoctorAreaOfKnowledge());
-                assertEquals(DOCTOR_PROFILE_OBJECT_PATH, first.getDoctorProfilePhotoURL());
-                assertEquals(CHILD_NAME, first.getChildName());
-                assertEquals(Integer.valueOf(1), first.getStatus());
-                assertEquals(Boolean.TRUE, first.getRated());
+                assertCaregiverViewRow(result.get(0), 1, Boolean.TRUE);
+                assertCaregiverViewRow(result.get(1), 0, Boolean.FALSE);
+                assertCaregiverViewRow(result.get(2), 0, Boolean.TRUE);
+        }
 
-                upcomingAppointmentDto second = result.get(1);
-                assertEquals(DOCTOR_NAME, second.getDoctorName());
-                assertEquals(Integer.valueOf(0), second.getStatus());
-                assertEquals(Boolean.FALSE, second.getRated());
-
-                upcomingAppointmentDto third = result.get(2);
-                assertEquals(DOCTOR_NAME, third.getDoctorName());
-                assertEquals(Integer.valueOf(0), third.getStatus());
-                assertEquals(Boolean.TRUE, third.getRated());
+        private static void assertCaregiverViewRow(
+                        upcomingAppointmentDto dto, int expectedStatus, Boolean expectedRated) {
+                assertEquals(DOCTOR_NAME, dto.getDoctorName());
+                assertEquals(DOCTOR_AREA, dto.getDoctorAreaOfKnowledge());
+                assertEquals(DOCTOR_PROFILE_OBJECT_PATH, dto.getDoctorProfilePhotoURL());
+                assertEquals(CHILD_NAME, dto.getChildName());
+                assertEquals(Integer.valueOf(expectedStatus), dto.getStatus());
+                assertEquals(expectedRated, dto.getRated());
         }
 
         private static doctorDto doctorDtoForCaregiverView() {
