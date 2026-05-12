@@ -48,6 +48,7 @@ public class FirebaseConfig {
 
             options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.getApplicationDefault())
+                    .setProjectId("bouh-94761")
                     .build();
         }
 
