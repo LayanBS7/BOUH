@@ -10,6 +10,7 @@ import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:bouh/View/AccountCreation/verify_email_view.dart';
 import 'package:bouh/widgets/loading_overlay.dart';
+import 'package:bouh/View/AccountCreation/Doctor/doctor_account_creation_step_progress.dart';
 
 class DoctorAccountCreationStep2 extends StatefulWidget {
   const DoctorAccountCreationStep2({super.key, this.signupData});
@@ -428,8 +429,9 @@ class _DoctorAccountCreationStep2State
 
                           const SizedBox(height: 14),
 
-                          // ================= PROGRESS =================
-                          const _DoctorProgressStep2(),
+                          const DoctorAccountCreationStepProgress(
+                            activePersonalInfo: false,
+                          ),
 
                           const SizedBox(height: 18),
 
@@ -688,95 +690,6 @@ class _DoctorAccountCreationStep2State
           ),
         ),
       ),
-      ),
-    );
-  }
-}
-
-// ================= PROGRESS WIDGET =================
-class _DoctorProgressStep2 extends StatelessWidget {
-  const _DoctorProgressStep2();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
-        Text(
-          'المعلومات الشخصية',
-          style: TextStyle(fontSize: 14, color: BColors.darkGrey),
-        ),
-        SizedBox(width: 10),
-        _CircleDone(),
-        SizedBox(width: 10),
-        _MiniDots(),
-        SizedBox(width: 10),
-        _CircleActive(),
-        SizedBox(width: 10),
-        Text(
-          'معلومات العمل',
-          style: TextStyle(fontSize: 14, color: BColors.darkGrey),
-        ),
-      ],
-    );
-  }
-}
-
-class _CircleDone extends StatelessWidget {
-  const _CircleDone();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 16,
-      height: 16,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: BColors.primary,
-      ),
-      child: const Center(
-        child: Icon(Icons.check, size: 11, color: Colors.white),
-      ),
-    );
-  }
-}
-
-class _CircleActive extends StatelessWidget {
-  const _CircleActive();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 16,
-      height: 16,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: BColors.primary, width: 2),
-      ),
-      child: const Center(
-        child: CircleAvatar(radius: 3, backgroundColor: BColors.primary),
-      ),
-    );
-  }
-}
-
-class _MiniDots extends StatelessWidget {
-  const _MiniDots();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(
-        3,
-        (i) => Container(
-          width: 4,
-          height: 4,
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: BColors.grey,
-          ),
-        ),
       ),
     );
   }

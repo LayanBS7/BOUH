@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:bouh/dto/doctorSignupData.dart';
 import 'package:bouh/View/AccountCreation/Doctor/doctor_account_creation_work_info.dart';
+import 'package:bouh/View/AccountCreation/Doctor/doctor_account_creation_step_progress.dart';
 import 'package:bouh/widgets/password_strength_widget.dart';
 
 class DoctorAccountCreationStep1 extends StatefulWidget {
@@ -483,10 +484,8 @@ class _DoctorAccountCreationStep1State
                         ),
                         const SizedBox(height: 14),
 
-                        const _StepProgress(
-                          rightLabel: 'المعلومات الشخصية',
-                          leftLabel: 'معلومات العمل',
-                          activeRight: true,
+                        const DoctorAccountCreationStepProgress(
+                          activePersonalInfo: true,
                         ),
                         const SizedBox(height: 18),
 
@@ -742,96 +741,6 @@ class _DoctorAccountCreationStep1State
           ),
         ),
       ),
-      ),
-    );
-  }
-}
-
-class _StepProgress extends StatelessWidget {
-  final String rightLabel;
-  final String leftLabel;
-  final bool activeRight;
-
-  const _StepProgress({
-    required this.rightLabel,
-    required this.leftLabel,
-    required this.activeRight,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          rightLabel,
-          style: const TextStyle(fontSize: 14, color: BColors.textDarkestBlue),
-        ),
-        const SizedBox(width: 10),
-        _Dot(active: activeRight),
-        const SizedBox(width: 10),
-        const _MiniDots(),
-        const SizedBox(width: 10),
-        _Dot(active: !activeRight),
-        const SizedBox(width: 10),
-        Text(
-          leftLabel,
-          style: const TextStyle(fontSize: 14, color: BColors.textDarkestBlue),
-        ),
-      ],
-    );
-  }
-}
-
-class _Dot extends StatelessWidget {
-  final bool active;
-  const _Dot({required this.active});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: active ? BColors.primary : BColors.grey,
-          width: 2,
-        ),
-      ),
-      child: active
-          ? Center(
-              child: Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: BColors.primary,
-                ),
-              ),
-            )
-          : null,
-    );
-  }
-}
-
-class _MiniDots extends StatelessWidget {
-  const _MiniDots();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(
-        3,
-        (i) => Container(
-          width: 4,
-          height: 4,
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: BColors.grey,
-          ),
-        ),
       ),
     );
   }

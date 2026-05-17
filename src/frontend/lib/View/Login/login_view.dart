@@ -538,18 +538,17 @@ class _LoginViewState extends State<LoginView> {
                                     minimumSize: Size.zero,
                                     tapTargetSize:
                                         MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  onPressed: _handleCreateAccount,
-                                  child: const Text(
-                                    'سجّل الآن',
-                                    style: TextStyle(
+                                    foregroundColor: BColors.primary,
+                                    textStyle: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,
-                                      color: BColors.primary,
                                       decoration: TextDecoration.underline,
                                       decorationColor: BColors.primary,
+                                      decorationThickness: 1.2,
                                     ),
                                   ),
+                                  onPressed: _handleCreateAccount,
+                                  child: const Text('سجّل الآن'),
                                 ),
                               ],
                             ),

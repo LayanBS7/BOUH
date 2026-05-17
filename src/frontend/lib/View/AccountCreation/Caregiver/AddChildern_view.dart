@@ -31,6 +31,9 @@ class _ChildFormData {
   /// Same pattern as qualifications: remove listener before disposing [nameFocusNode].
   VoidCallback? _onNameBlurNormalize;
 
+  /// Name error shows only after the user focuses or types in the name field (or on submit).
+  bool nameTouched = false;
+
   String gender = 'female';
   String? day;
   String? month;
@@ -137,6 +140,7 @@ class _CaregiverAccountCreationStep2State
   void _attachChildNameBlurNormalize(_ChildFormData c) {
     void listener() {
       if (!c.nameFocusNode.hasFocus) {
+        c.nameTouched = true;
         ProfileFieldValidation.syncTextControllerToNormalizedPersonName(
           c.nameController,
         );
@@ -193,6 +197,12 @@ class _CaregiverAccountCreationStep2State
 
     final signupData = widget.signupData;
     if (signupData == null) return;
+
+    setState(() {
+      for (final c in _childrenForms) {
+        c.nameTouched = true;
+      }
+    });
 
     for (final c in _childrenForms) {
       ProfileFieldValidation.syncTextControllerToNormalizedPersonName(
@@ -392,9 +402,11 @@ class _CaregiverAccountCreationStep2State
                         itemBuilder: (context, index) {
                           final child = _childrenForms[index];
                           final canDelete = _childrenForms.length > 1;
-                          final nameError = ProfileFieldValidation.childDisplayName(
-                            child.nameController.text,
-                          );
+                          final nameError = child.nameTouched
+                              ? ProfileFieldValidation.childDisplayName(
+                                  child.nameController.text,
+                                )
+                              : null;
                           final dateOfBirthError =
                               _validateChildDateOfBirth(child);
 
@@ -438,7 +450,9 @@ class _CaregiverAccountCreationStep2State
                                           .childDisplayNameMaxLength,
                                     ),
                                   ],
-                                  onChanged: (_) => setState(() {}),
+                                  onChanged: (_) => setState(() {
+                                    child.nameTouched = true;
+                                  }),
                                 ),
                                 if (nameError != null) ...[
                                   const SizedBox(height: 6),
