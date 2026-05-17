@@ -405,7 +405,7 @@ class _DoctorAccountCreationStep1State
       ),
       errorStyle: const TextStyle(
         color: BColors.validationError,
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: FontWeight.w500,
       ),
       errorBorder: OutlineInputBorder(
@@ -522,6 +522,7 @@ class _DoctorAccountCreationStep1State
                           controller: _emailCtrl,
                           keyboardType: TextInputType.emailAddress,
                           obscure: false,
+                          inputFontSize: 17,
                           decoration: _inputDecoration(),
                           focusNode: _emailFocusNode,
                           fieldKey: _emailFieldKey,
@@ -606,15 +607,13 @@ class _DoctorAccountCreationStep1State
                         ),
                         const SizedBox(height: 14),
 
-                        const SizedBox(height: 14),
-
                         Align(
                           alignment: Alignment.centerRight,
                           child: RichText(
                             text: const TextSpan(
                               style: TextStyle(
-                                fontSize: 13,
-                                color: BColors.darkGrey,
+                                fontSize: 14,
+                                color: BColors.textDarkestBlue,
                               ),
                               children: [
                                 TextSpan(text: 'الجنس '),
@@ -639,10 +638,10 @@ class _DoctorAccountCreationStep1State
                         Align(
                           alignment: Alignment.centerRight,
                           child: const Text(
-                            'صورة شخصية',
+                            'الصورة الشخصية',
                             style: TextStyle(
-                              fontSize: 13,
-                              color: BColors.darkGrey,
+                              fontSize: 14,
+                              color: BColors.textDarkestBlue,
                             ),
                           ),
                         ),
@@ -685,7 +684,7 @@ class _DoctorAccountCreationStep1State
                               if (_profileImage != null) ...[
                                 _circleProfileImageAction(
                                   icon: Icons.edit,
-                                  iconColor: Colors.grey,
+                                  iconColor: BColors.primary,
                                   onTap: _pickImage,
                                 ),
                                 const SizedBox(width: 10),
@@ -715,12 +714,12 @@ class _DoctorAccountCreationStep1State
                                 : null,
                             style: ElevatedButton.styleFrom(
                               elevation: 0,
-                              backgroundColor: BColors.secondary,
-                              foregroundColor: BColors.textDarkestBlue,
-                              disabledBackgroundColor: BColors.secondary
+                              backgroundColor: BColors.primary,
+                              foregroundColor: BColors.white,
+                              disabledBackgroundColor: BColors.primary
                                   .withOpacity(0.4),
-                              disabledForegroundColor: BColors.textDarkestBlue
-                                  .withOpacity(0.5),
+                              disabledForegroundColor: BColors.white
+                                  .withOpacity(0.7),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
@@ -766,7 +765,7 @@ class _StepProgress extends StatelessWidget {
       children: [
         Text(
           rightLabel,
-          style: const TextStyle(fontSize: 12, color: BColors.darkGrey),
+          style: const TextStyle(fontSize: 14, color: BColors.textDarkestBlue),
         ),
         const SizedBox(width: 10),
         _Dot(active: activeRight),
@@ -777,7 +776,7 @@ class _StepProgress extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           leftLabel,
-          style: const TextStyle(fontSize: 12, color: BColors.darkGrey),
+          style: const TextStyle(fontSize: 14, color: BColors.textDarkestBlue),
         ),
       ],
     );
@@ -902,7 +901,7 @@ class _SegButton extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             color: selected ? BColors.white : BColors.darkGrey,
           ),
@@ -956,6 +955,7 @@ class _LabeledFormField extends StatelessWidget {
   final String? Function(String?)? validator;
   final ValueChanged<String> onChanged;
   final List<TextInputFormatter>? inputFormatters;
+  final double inputFontSize;
 
   const _LabeledFormField({
     required this.label,
@@ -969,6 +969,7 @@ class _LabeledFormField extends StatelessWidget {
     this.fieldKey,
     this.validator,
     this.inputFormatters,
+    this.inputFontSize = 16,
   });
 
   @override
@@ -984,9 +985,16 @@ class _LabeledFormField extends StatelessWidget {
           focusNode: focusNode,
           keyboardType: keyboardType,
           obscureText: obscure,
+          style: TextStyle(
+            fontSize: inputFontSize,
+            color: BColors.textDarkestBlue,
+          ),
           decoration: decoration.copyWith(
             hintText: placeholder,
-            hintStyle: const TextStyle(color: BColors.darkGrey, fontSize: 13),
+            hintStyle: TextStyle(
+              color: BColors.darkGrey,
+              fontSize: inputFontSize > 16 ? 16 : 15,
+            ),
           ),
           validator: validator,
           textAlign: TextAlign.right,
@@ -1003,14 +1011,14 @@ class _LabeledFormField extends StatelessWidget {
     if (!hasRequiredStar) {
       return Text(
         label,
-        style: const TextStyle(fontSize: 13, color: BColors.darkGrey),
+        style: const TextStyle(fontSize: 14, color: BColors.textDarkestBlue),
       );
     }
 
     final base = trimmed.substring(0, trimmed.length - 1).trimRight();
     return RichText(
       text: TextSpan(
-        style: const TextStyle(fontSize: 13, color: BColors.darkGrey),
+        style: const TextStyle(fontSize: 14, color: BColors.textDarkestBlue),
         children: [
           TextSpan(text: '$base '),
           const TextSpan(
