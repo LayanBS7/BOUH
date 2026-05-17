@@ -65,7 +65,8 @@ class _BookedAppointmentsPreviousState
   // Triggers a re-fetch when a doctor updates their profile photo.
   final Map<String, StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>
   _doctorListeners = {};
-
+  final Map<String, StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>
+  _childListeners = {};
   @override
   void initState() {
     super.initState();
@@ -96,7 +97,10 @@ class _BookedAppointmentsPreviousState
       sub.cancel();
     }
     _doctorListeners.clear();
-
+    for (final sub in _childListeners.values) {
+      sub.cancel();
+    }
+    _childListeners.clear();
     if (caregiverId == null || caregiverId.isEmpty) {
       setState(() {
         _list = [];
@@ -127,6 +131,7 @@ class _BookedAppointmentsPreviousState
             });
             _startTicker();
             _updateDoctorListeners(_list);
+            _updateChildListeners(_list);
           },
           onError: (e) {
             if (!mounted) return;
@@ -187,6 +192,7 @@ class _BookedAppointmentsPreviousState
         _upcomingCache = data.$2;
       });
       _updateDoctorListeners(_list);
+      _updateChildListeners(_list);
     } catch (_) {
       // Silent — the main stream will re-sync on the next appointment change.
     }
@@ -240,10 +246,17 @@ class _BookedAppointmentsPreviousState
   void dispose() {
     _subscription?.cancel();
     _ticker?.cancel();
+
     for (final sub in _doctorListeners.values) {
       sub.cancel();
     }
     _doctorListeners.clear();
+
+    for (final sub in _childListeners.values) {
+      sub.cancel();
+    }
+    _childListeners.clear();
+
     super.dispose();
   }
 
@@ -560,5 +573,55 @@ class _BookedAppointmentsPreviousState
 
     if (e.isEmpty) return '$s $suffix';
     return '$s - $e $suffix';
+  }
+
+  void _updateChildListeners(List<UpcomingAppointmentDto> list) {
+    final currentIds = list
+        .map((d) => d.childId)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    _childListeners.keys
+        .where((id) => !currentIds.contains(id))
+        .toList()
+        .forEach((id) => _childListeners.remove(id)?.cancel());
+
+    for (final childId in currentIds) {
+      if (_childListeners.containsKey(childId)) continue;
+
+      final caregiverId = AuthSession.instance.userId;
+      if (caregiverId == null || caregiverId.isEmpty) return;
+
+      _childListeners[childId] = FirebaseFirestore.instance
+          .collection('caregivers')
+          .doc(caregiverId)
+          .collection('children')
+          .doc(childId)
+          .snapshots()
+          .skip(1)
+          .listen((_) => _refetchOnChildChange());
+    }
+  }
+
+  Future<void> _refetchOnChildChange() async {
+    final caregiverId = AuthSession.instance.userId;
+
+    if (caregiverId == null || caregiverId.isEmpty || !mounted) return;
+
+    try {
+      final data = await _appointmentsService.getFullPreviousWithUpcoming(
+        caregiverId,
+      );
+
+      if (!mounted) return;
+      print("NEW CHILD NAME = ${data.$1.first.childName}");
+      setState(() {
+        _list = data.$1;
+        _upcomingCache = data.$2;
+      });
+
+      _updateChildListeners(_list);
+    } catch (_) {}
   }
 }

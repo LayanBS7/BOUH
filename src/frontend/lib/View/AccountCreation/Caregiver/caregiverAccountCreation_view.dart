@@ -333,6 +333,7 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
                         placeholder: 'example@gmail.com',
                         keyboardType: TextInputType.emailAddress,
                         obscure: false,
+                        inputFontSize: 17,
                         controller: _emailCtrl,
                         focusNode: _emailFocusNode,
                         fieldKey: _emailFieldKey,
@@ -436,12 +437,12 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
                               : null,
                           style: ElevatedButton.styleFrom(
                             elevation: 0,
-                            backgroundColor: BColors.secondary,
-                            foregroundColor: BColors.textDarkestBlue,
-                            disabledBackgroundColor: BColors.secondary
+                            backgroundColor: BColors.primary,
+                            foregroundColor: BColors.white,
+                            disabledBackgroundColor: BColors.primary
                                 .withOpacity(0.4),
-                            disabledForegroundColor: BColors.textDarkestBlue
-                                .withOpacity(0.5),
+                            disabledForegroundColor: BColors.white
+                                .withOpacity(0.7),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
@@ -494,6 +495,7 @@ class _LabeledField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final Widget? suffixIcon;
   final List<TextInputFormatter>? inputFormatters;
+  final double inputFontSize;
 
   const _LabeledField({
     required this.label,
@@ -508,6 +510,7 @@ class _LabeledField extends StatelessWidget {
     this.textInputAction,
     this.suffixIcon,
     this.inputFormatters,
+    this.inputFontSize = 16,
   });
 
   @override
@@ -525,6 +528,10 @@ class _LabeledField extends StatelessWidget {
           focusNode: focusNode,
           keyboardType: keyboardType,
           obscureText: obscure,
+          style: TextStyle(
+            fontSize: inputFontSize,
+            color: BColors.textDarkestBlue,
+          ),
           textAlign: TextAlign.right,
           validator: validator,
           textInputAction: textInputAction,
@@ -533,7 +540,10 @@ class _LabeledField extends StatelessWidget {
           decoration: InputDecoration(
             suffixIcon: suffixIcon,
             hintText: placeholder,
-            hintStyle: const TextStyle(color: BColors.darkGrey, fontSize: 13),
+            hintStyle: TextStyle(
+              color: BColors.darkGrey,
+              fontSize: inputFontSize > 16 ? 16 : 15,
+            ),
             filled: true,
             fillColor: BColors.white,
             contentPadding: const EdgeInsets.symmetric(
@@ -551,7 +561,7 @@ class _LabeledField extends StatelessWidget {
             // Error text at bottom of field in deep red.
             errorStyle: const TextStyle(
               color: BColors.validationError,
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
             errorBorder: OutlineInputBorder(
@@ -577,14 +587,14 @@ class _LabeledField extends StatelessWidget {
     if (!hasRequiredStar) {
       return Text(
         label,
-        style: const TextStyle(fontSize: 13, color: BColors.darkGrey),
+        style: const TextStyle(fontSize: 14, color: BColors.textDarkestBlue),
       );
     }
 
     final base = trimmed.substring(0, trimmed.length - 1).trimRight();
     return RichText(
       text: TextSpan(
-        style: const TextStyle(fontSize: 13, color: BColors.darkGrey),
+        style: const TextStyle(fontSize: 14, color: BColors.textDarkestBlue),
         children: [
           TextSpan(text: '$base '),
           const TextSpan(

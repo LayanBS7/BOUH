@@ -54,7 +54,16 @@ class _DoctorDetailsViewState extends State<DoctorDetailsView> {
                 final doctorName = doctor.name;
                 final doctorMajor = doctor.areaOfKnowledge;
                 final rating = doctor.averageRating ?? 0.0;
-                final profilePhotoUrl = doctor.profilePhotoURL;
+                final streamPhoto = doctor.profilePhotoURL;
+
+                final bool streamHasValidUrl =
+                    streamPhoto != null &&
+                    streamPhoto.isNotEmpty &&
+                    streamPhoto.startsWith('http');
+
+                final profilePhotoUrl = streamHasValidUrl
+                    ? streamPhoto
+                    : widget.doctor.profilePhotoURL;
                 final years = doctor.yearsOfExperience;
                 final qualifications = doctor.qualifications;
 
@@ -314,19 +323,20 @@ class _SmallStatCard extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-              color: Colors.black.withOpacity(0.75),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: BColors.textDarkestBlue,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: Colors.black.withOpacity(0.55),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: BColors.textDarkestBlue,
+              height: 1.2,
             ),
           ),
         ],
