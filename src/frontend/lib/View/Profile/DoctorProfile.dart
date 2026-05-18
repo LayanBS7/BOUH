@@ -11,6 +11,7 @@ import 'package:bouh/View/HomePage/widgets/doctorBottomNav.dart';
 import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/View/Login/login_view.dart';
 import 'package:bouh/widgets/confirmation_popup.dart';
+import 'package:bouh/View/Profile/profile_static_info_page.dart';
 import 'package:bouh/widgets/loading_overlay.dart';
 import 'package:bouh/services/profileService.dart';
 import 'package:bouh/dto/doctorUpdateDto.dart';
@@ -2617,6 +2618,25 @@ class _DoctorProfileViewState extends State<DoctorProfileView>
                                 onTap: _loadingProfile
                                     ? () {}
                                     : () => _openProfessionalInfoPage(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 34),
+                          _settingsCard(
+                            children: [
+                              _settingsMenuTile(
+                                icon: Icons.info_outline_rounded,
+                                title: 'من نحن',
+                                onTap: () => ProfileStaticInfoPage.openAbout(
+                                  context,
+                                ),
+                              ),
+                              _settingsMenuTile(
+                                icon: Icons.mail_outline_rounded,
+                                title: 'تواصل معنا',
+                                onTap: () => ProfileStaticInfoPage.openContact(
+                                  context,
+                                ),
                               ),
                             ],
                           ),

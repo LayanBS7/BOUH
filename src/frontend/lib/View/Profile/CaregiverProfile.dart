@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:bouh/View/Profile/ChildrenManagementView.dart';
+import 'package:bouh/View/Profile/profile_static_info_page.dart';
 import 'package:bouh/View/caregiverHomepage/widgets/caregiverBottomNav.dart';
 import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/authentication/AuthSession.dart';
@@ -192,6 +193,29 @@ class _CaregiverAccountViewState extends State<CaregiverAccountView> {
                           ),
                         ],
 
+                        const SizedBox(height: 34),
+                        _settingsCard(
+                          children: [
+                            _settingsItem(
+                              title: 'من نحن',
+                              titleColor: BColors.textDarkestBlue,
+                              icon: Icons.info_outline_rounded,
+                              iconColor: BColors.primary,
+                              showChevron: true,
+                              onTap: () =>
+                                  ProfileStaticInfoPage.openAbout(context),
+                            ),
+                            _settingsItem(
+                              title: 'تواصل معنا',
+                              titleColor: BColors.textDarkestBlue,
+                              icon: Icons.mail_outline_rounded,
+                              iconColor: BColors.primary,
+                              showChevron: true,
+                              onTap: () =>
+                                  ProfileStaticInfoPage.openContact(context),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 34),
                         _settingsCard(
                           children: [
@@ -902,10 +926,10 @@ class _CaregiverAccountViewState extends State<CaregiverAccountView> {
             height: _kControlHeight,
             child: Row(
               children: const [
-                Icon(Icons.family_restroom, size: 20, color: BColors.primary),
+                Icon(Icons.groups_outlined, size: 20, color: BColors.primary),
                 SizedBox(width: 10),
                 Text(
-                  "ادارة الاطفال",
+                  'ادارة الاطفال',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
