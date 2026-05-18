@@ -3,14 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:bouh/dto/caregiverSignupData.dart';
+import 'package:bouh/dto/caregiver_children_draft.dart';
 import 'package:bouh/View/AccountCreation/Caregiver/AddChildern_view.dart';
 import 'package:bouh/widgets/password_strength_widget.dart';
+import 'package:bouh/widgets/registration_flow_cache.dart';
+import 'package:bouh/widgets/confirmation_popup.dart';
 
-// ---------------------------------------------------------------------------
 // Caregiver signup step 1: email, password, confirm password, name.
 // Validation is enforced on each field; on success we pass [CaregiverSignupData]
 // to step 2 (Add Children) where the full caregiver DTO is built and sent.
-// ---------------------------------------------------------------------------
 class CaregiverSignupView extends StatefulWidget {
   const CaregiverSignupView({super.key, this.onNext, this.onSubmitCredentials});
 
@@ -72,9 +73,26 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  /// Children step fields saved when the user goes back from step 2.
+  CaregiverChildrenDraft? _childrenDraft;
+
+  void _clearRegistrationDrafts() {
+    _childrenDraft = null;
+    RegistrationFlowCache.clearCaregiver();
+  }
+
+  bool _hasRegistrationProgress() {
+    if (_childrenDraft != null) return true;
+    if (_emailCtrl.text.trim().isNotEmpty) return true;
+    if (_passwordCtrl.text.isNotEmpty) return true;
+    if (_confirmPasswordCtrl.text.isNotEmpty) return true;
+    return _nameCtrl.text.trim().isNotEmpty;
+  }
+
   @override
   void initState() {
     super.initState();
+    _clearRegistrationDrafts();
     // When a field loses focus: mark it touched and validate only that field (so error appears if empty/invalid).
     _emailFocusNode.addListener(_onEmailFocusChange);
     _passwordFocusNode.addListener(_onPasswordFocusChange);
@@ -119,7 +137,21 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
     FocusManager.instance.primaryFocus?.unfocus();
     await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
     await Future<void>.delayed(const Duration(milliseconds: 180));
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+
+    if (_hasRegistrationProgress()) {
+      final shouldLeave = await ConfirmationPopup.show(
+        context,
+        title: 'مغادرة إنشاء الحساب',
+        message: 'ستفقد البيانات التي أدخلتها. هل تريد المغادرة؟',
+        confirmText: 'مغادرة',
+        cancelText: 'بقاء',
+      );
+      if (!shouldLeave || !mounted) return;
+    }
+
+    _clearRegistrationDrafts();
+    Navigator.of(context).pop();
   }
 
   /// Enables "Next" only when values satisfy the same rules as submit ([_handleNext]).
@@ -162,6 +194,7 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
 
   @override
   void dispose() {
+    _clearRegistrationDrafts();
     _emailFocusNode.removeListener(_onEmailFocusChange);
     _passwordFocusNode.removeListener(_onPasswordFocusChange);
     _confirmPasswordFocusNode.removeListener(_onConfirmPasswordFocusChange);
@@ -223,23 +256,44 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
       caregiverName: caregiverName,
     );
 
-    Navigator.push(
+    final draftToRestore =
+        _childrenDraft ?? RegistrationFlowCache.caregiverChildren;
+
+    final returnedDraft = await Navigator.push<CaregiverChildrenDraft>(
       context,
       MaterialPageRoute(
-        builder: (_) => CaregiverAccountCreationStep2(signupData: signupData),
+        builder: (_) => CaregiverAccountCreationStep2(
+          signupData: signupData,
+          initialDraft: draftToRestore,
+        ),
       ),
     );
+    if (!mounted) return;
+    final merged =
+        returnedDraft ?? RegistrationFlowCache.caregiverChildren;
+    if (merged != null) {
+      setState(() {
+        _childrenDraft = merged;
+        RegistrationFlowCache.caregiverChildren = merged;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: BColors.white,
-        resizeToAvoidBottomInset: true,
-        body: SafeArea(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) return;
+        await _popAccountCreation();
+      },
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: BColors.white,
+          resizeToAvoidBottomInset: true,
+          body: SafeArea(
           child: GestureDetector(
             onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
             behavior: HitTestBehavior.translucent,
@@ -463,6 +517,7 @@ class _CaregiverSignupViewState extends State<CaregiverSignupView> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

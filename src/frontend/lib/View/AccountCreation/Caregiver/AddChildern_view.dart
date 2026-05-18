@@ -6,19 +6,25 @@ import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:bouh/dto/caregiverSignupData.dart';
+import 'package:bouh/dto/caregiver_children_draft.dart';
 import 'package:bouh/dto/caregiverDto.dart';
 import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/View/AccountCreation/verify_email_view.dart';
 import 'package:bouh/services/childrenService.dart';
 import 'package:bouh/widgets/loading_overlay.dart';
+import 'package:bouh/widgets/registration_flow_cache.dart';
 
 class CaregiverAccountCreationStep2 extends StatefulWidget {
   const CaregiverAccountCreationStep2({
     super.key,
     this.signupData,
+    this.initialDraft,
   });
 
   final CaregiverSignupData? signupData;
+
+  /// Restored when the user returns from this screen via back navigation.
+  final CaregiverChildrenDraft? initialDraft;
 
   @override
   State<CaregiverAccountCreationStep2> createState() =>
@@ -60,6 +66,7 @@ class _CaregiverAccountCreationStep2State
 
   final List<_ChildFormData> _childrenForms = [_ChildFormData()];
   bool _isSubmitting = false;
+  bool _submittedSuccessfully = false;
   String? _submitError;
 
   /// Number of days in the given month/year (leap-year aware).
@@ -155,9 +162,81 @@ class _CaregiverAccountCreationStep2State
   @override
   void initState() {
     super.initState();
-    for (final c in _childrenForms) {
-      _attachChildNameBlurNormalize(c);
+    final draft =
+        widget.initialDraft ?? RegistrationFlowCache.caregiverChildren;
+    if (draft != null && draft.children.isNotEmpty) {
+      _applyDraft(draft);
+    } else {
+      _attachChildNameBlurNormalize(_childrenForms.first);
     }
+  }
+
+  CaregiverChildrenDraft _captureDraft() {
+    return CaregiverChildrenDraft(
+      children: _childrenForms
+          .map(
+            (c) => CaregiverChildDraft(
+              name: c.nameController.text,
+              gender: c.gender,
+              day: c.day,
+              month: c.month,
+              year: c.year,
+              nameTouched: c.nameTouched,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  void _applyDraft(CaregiverChildrenDraft draft) {
+    for (final f in _childrenForms) {
+      f.dispose();
+    }
+    _childrenForms.clear();
+
+    for (final child in draft.children) {
+      final form = _ChildFormData();
+      form.nameController.text = child.name;
+      form.gender = child.gender;
+      form.day = child.day;
+      form.month = child.month;
+      form.year = child.year;
+      form.nameTouched = child.nameTouched;
+      _attachChildNameBlurNormalize(form);
+      _childrenForms.add(form);
+    }
+
+    if (_childrenForms.isEmpty) {
+      final form = _ChildFormData();
+      _attachChildNameBlurNormalize(form);
+      _childrenForms.add(form);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _persistDraftToCache() {
+    RegistrationFlowCache.caregiverChildren = _captureDraft();
+  }
+
+  Future<void> _popStep2() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    if (!mounted) return;
+    final draft = _captureDraft();
+    RegistrationFlowCache.caregiverChildren = draft;
+    Navigator.of(context).pop(draft);
+  }
+
+  @override
+  void deactivate() {
+    if (!_submittedSuccessfully) {
+      _persistDraftToCache();
+    }
+    super.deactivate();
   }
 
   @override
@@ -275,6 +354,8 @@ class _CaregiverAccountCreationStep2State
 
       // 3) Go to verify email screen
       if (mounted) {
+        _submittedSuccessfully = true;
+        RegistrationFlowCache.clearCaregiver();
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const VerifyEmailView()),
           (route) => false,
@@ -322,15 +403,21 @@ class _CaregiverAccountCreationStep2State
   Widget build(BuildContext context) {
     final isCreateEnabled = _allChildrenComplete() && !_isSubmitting;
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: BColors.white,
-        body: SafeArea(
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              SingleChildScrollView(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) return;
+        await _popStep2();
+      },
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: BColors.white,
+          body: SafeArea(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(22, 30, 22, 40),
                   child: Column(
@@ -347,7 +434,7 @@ class _CaregiverAccountCreationStep2State
                                 size: 20,
                                 color: BColors.textDarkestBlue,
                               ),
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: _popStep2,
                             ),
                             const SizedBox(width: 6),
                             const Expanded(
@@ -576,14 +663,14 @@ class _CaregiverAccountCreationStep2State
                             onPressed: _addAnotherChild,
                             icon: const Icon(
                               Icons.add_circle_outline_rounded,
-                              color: BColors.textDarkestBlue,
+                              color: BColors.primary,
                             ),
                             label: const Text(
                               'إضافة طفل آخر',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
-                                color: BColors.textDarkestBlue,
+                                color: BColors.primary,
                               ),
                             ),
                           ),
@@ -640,6 +727,7 @@ class _CaregiverAccountCreationStep2State
             ],
           ),
         ),
+      ),
       ),
     );
   }
