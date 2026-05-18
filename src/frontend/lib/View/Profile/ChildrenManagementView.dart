@@ -216,17 +216,21 @@ class _ChildrenManagementViewState extends State<ChildrenManagementView> {
   void _showSnack(String text, {bool isSuccess = false}) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: isSuccess ? BColors.primary : BColors.validationError,
-        content: Text(
-          text,
-          textDirection: TextDirection.rtl,
-          textAlign: TextAlign.right,
-          style: const TextStyle(color: Colors.white),
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          backgroundColor: isSuccess
+              ? BColors.primary
+              : BColors.validationError,
+          content: Text(
+            text,
+            textDirection: TextDirection.rtl,
+            textAlign: TextAlign.right,
+            style: const TextStyle(color: Colors.white),
+          ),
         ),
-      ),
-    );
+      );
   }
 
   @override
@@ -625,7 +629,7 @@ class _AddChildDialogState extends State<_AddChildDialog> {
   final TextEditingController dayCtrl = TextEditingController();
 
   bool isFemale = true;
-
+  String? validationError;
   @override
   void initState() {
     super.initState();
@@ -805,6 +809,24 @@ class _AddChildDialogState extends State<_AddChildDialog> {
         content: SingleChildScrollView(
           child: Column(
             children: [
+              if (validationError != null) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      validationError!,
+                      textDirection: TextDirection.rtl,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        color: BColors.validationError,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               TextField(
                 controller: nameCtrl,
                 style: _kChildFieldValueStyle,
@@ -952,17 +974,9 @@ class _AddChildDialogState extends State<_AddChildDialog> {
                 : () {
                     final err = _validate();
                     if (err != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: BColors.validationError,
-                          content: Text(
-                            err,
-                            textDirection: TextDirection.rtl,
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      );
+                      setState(() {
+                        validationError = err;
+                      });
                       return;
                     }
 
