@@ -7,8 +7,11 @@ import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:bouh/dto/doctorSignupData.dart';
+import 'package:bouh/dto/doctor_work_info_draft.dart';
 import 'package:bouh/View/AccountCreation/Doctor/doctor_account_creation_work_info.dart';
 import 'package:bouh/View/AccountCreation/Doctor/doctor_account_creation_step_progress.dart';
+import 'package:bouh/widgets/registration_flow_cache.dart';
+import 'package:bouh/widgets/confirmation_popup.dart';
 import 'package:bouh/widgets/password_strength_widget.dart';
 
 class DoctorAccountCreationStep1 extends StatefulWidget {
@@ -61,6 +64,9 @@ class _DoctorAccountCreationStep1State
   File? _profileImage;
   String? _profileImagePath;
 
+  /// Work-info fields saved when the user goes back from step 2.
+  DoctorWorkInfoDraft? _workInfoDraft;
+
   final ImagePicker _picker = ImagePicker();
 
   bool get _isFormComplete {
@@ -87,9 +93,24 @@ class _DoctorAccountCreationStep1State
 
   static const String _namePrefix = 'د. ';
 
+  void _clearRegistrationDrafts() {
+    _workInfoDraft = null;
+    RegistrationFlowCache.clearDoctor();
+  }
+
+  bool _hasRegistrationProgress() {
+    if (_workInfoDraft != null) return true;
+    if (_profileImage != null) return true;
+    if (_emailCtrl.text.trim().isNotEmpty) return true;
+    if (_passCtrl.text.isNotEmpty) return true;
+    if (_confirmCtrl.text.isNotEmpty) return true;
+    return _nameCtrl.text.trim().length > _namePrefix.length;
+  }
+
   @override
   void initState() {
     super.initState();
+    _clearRegistrationDrafts();
     _nameCtrl.text = _namePrefix;
     _nameCtrl.selection = TextSelection.collapsed(offset: _namePrefix.length);
     _emailFocusNode.addListener(_onEmailFocusChange);
@@ -206,6 +227,7 @@ class _DoctorAccountCreationStep1State
 
   @override
   void dispose() {
+    _clearRegistrationDrafts();
     _emailFocusNode.removeListener(_onEmailFocusChange);
     _passwordFocusNode.removeListener(_onPasswordFocusChange);
     _confirmFocusNode.removeListener(_onConfirmFocusChange);
@@ -339,7 +361,7 @@ class _DoctorAccountCreationStep1State
     return trimmed.replaceAll('\\', '/');
   }
 
-  void _handleNext() {
+  Future<void> _handleNext() async {
     if (!_isFormComplete) return;
     setState(() {
       _emailTouched = true;
@@ -373,13 +395,28 @@ class _DoctorAccountCreationStep1State
     print(
       '[DoctorReg Step1] _handleNext: signupData created with profileImage=${_profileImage != null ? _profileImage!.path : "null"}',
     );
-    Navigator.push(
+    final draftToRestore =
+        _workInfoDraft ?? RegistrationFlowCache.doctorWorkInfo;
+
+    final returnedDraft = await Navigator.push<DoctorWorkInfoDraft>(
       context,
       MaterialPageRoute(
-        builder: (_) => DoctorAccountCreationStep2(signupData: signupData),
+        builder: (_) => DoctorAccountCreationStep2(
+          signupData: signupData,
+          initialDraft: draftToRestore,
+        ),
       ),
     );
-    print('[DoctorReg Step1] _handleNext: pushed to Step2 with signupData');
+    if (!mounted) return;
+    final merged =
+        returnedDraft ?? RegistrationFlowCache.doctorWorkInfo;
+    if (merged != null) {
+      setState(() {
+        _workInfoDraft = merged;
+        RegistrationFlowCache.doctorWorkInfo = merged;
+      });
+    }
+    print('[DoctorReg Step1] _handleNext: returned from Step2 with signupData');
   }
 
   Future<void> _popStep1() async {
@@ -387,6 +424,19 @@ class _DoctorAccountCreationStep1State
     await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
     await Future<void>.delayed(const Duration(milliseconds: 180));
     if (!mounted) return;
+
+    if (_hasRegistrationProgress()) {
+      final shouldLeave = await ConfirmationPopup.show(
+        context,
+        title: 'مغادرة إنشاء الحساب',
+        message: 'ستفقد البيانات التي أدخلتها. هل تريد المغادرة؟',
+        confirmText: 'مغادرة',
+        cancelText: 'بقاء',
+      );
+      if (!shouldLeave || !mounted) return;
+    }
+
+    _clearRegistrationDrafts();
     Navigator.of(context).pop();
   }
 

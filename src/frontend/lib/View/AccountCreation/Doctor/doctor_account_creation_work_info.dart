@@ -5,18 +5,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bouh/theme/base_themes/colors.dart';
 import 'package:bouh/dto/doctorSignupData.dart';
+import 'package:bouh/dto/doctor_work_info_draft.dart';
 import 'package:bouh/dto/doctorDto.dart';
 import 'package:bouh/authentication/AuthService.dart';
 import 'package:bouh/widgets/profile_field_validation.dart';
 import 'package:bouh/View/AccountCreation/verify_email_view.dart';
 import 'package:bouh/widgets/loading_overlay.dart';
 import 'package:bouh/View/AccountCreation/Doctor/doctor_account_creation_step_progress.dart';
+import 'package:bouh/widgets/registration_flow_cache.dart';
 
 class DoctorAccountCreationStep2 extends StatefulWidget {
-  const DoctorAccountCreationStep2({super.key, this.signupData});
+  const DoctorAccountCreationStep2({
+    super.key,
+    this.signupData,
+    this.initialDraft,
+  });
 
   /// Step-1 data (email, password, name, gender, profileImage)
   final DoctorSignupData? signupData;
+
+  /// Restored when the user returns from step 2 via back navigation.
+  final DoctorWorkInfoDraft? initialDraft;
 
   @override
   State<DoctorAccountCreationStep2> createState() =>
@@ -48,12 +57,13 @@ class _DoctorAccountCreationStep2State
   /// Inline qualification errors only after the user starts typing in a qualification field.
   bool _qualificationsTyped = false;
 
-  bool _classificationTyped = false;
+  bool _scfhsNumberTyped = false;
   bool _ibanTyped = false;
 
   String? _specialty;
   String? _years;
   bool _isSubmitting = false;
+  bool _submittedSuccessfully = false;
   String? _submitError;
 
   void _trimQualificationsInPlace() {
@@ -131,9 +141,65 @@ class _DoctorAccountCreationStep2State
   @override
   void initState() {
     super.initState();
-    _addQualification(fromInitialSetup: true);
     _classificationFocusNode.addListener(_onClassificationFocusChange);
     _ibanFocusNode.addListener(_onIbanFocusChange);
+    final draft =
+        widget.initialDraft ?? RegistrationFlowCache.doctorWorkInfo;
+    if (draft != null) {
+      _applyDraft(draft);
+    } else {
+      _addQualification(fromInitialSetup: true);
+    }
+  }
+
+  DoctorWorkInfoDraft _captureDraft() {
+    _trimQualificationsInPlace();
+    return DoctorWorkInfoDraft(
+      qualifications: _qualificationCtrls.map((c) => c.text).toList(),
+      scfhsNumber: _classificationCtrl.text,
+      ibanSuffix: _ibanSuffixCtrl.text,
+      areaOfKnowledge: _specialty,
+      years: _years,
+      qualificationsTyped: _qualificationsTyped,
+      scfhsNumberTyped: _scfhsNumberTyped,
+      ibanTyped: _ibanTyped,
+    );
+  }
+
+  void _applyDraft(DoctorWorkInfoDraft draft) {
+    for (final c in _qualificationCtrls) {
+      c.dispose();
+    }
+    for (final f in _qualificationFocusNodes) {
+      f.dispose();
+    }
+    _qualificationCtrls.clear();
+    _qualificationFocusNodes.clear();
+
+    final lines = draft.qualifications.isEmpty ? const [''] : draft.qualifications;
+    for (var i = 0; i < lines.length; i++) {
+      _addQualification(fromInitialSetup: true);
+      _qualificationCtrls[i].text = lines[i];
+    }
+
+    _classificationCtrl.text = draft.scfhsNumber;
+    _ibanSuffixCtrl.text = draft.ibanSuffix;
+    _specialty = draft.areaOfKnowledge;
+    _years = draft.years;
+    _qualificationsTyped = draft.qualificationsTyped;
+    _scfhsNumberTyped = draft.scfhsNumberTyped;
+    _ibanTyped = draft.ibanTyped;
+    if (_qualificationsTyped) {
+      _qualificationsError = _validateQualificationsList();
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _persistDraftToCache() {
+    RegistrationFlowCache.doctorWorkInfo = _captureDraft();
   }
 
   void _addQualification({bool fromInitialSetup = false}) {
@@ -184,6 +250,14 @@ class _DoctorAccountCreationStep2State
   }
 
   @override
+  void deactivate() {
+    if (!_submittedSuccessfully) {
+      _persistDraftToCache();
+    }
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
     for (final c in _qualificationCtrls) c.dispose();
     for (final f in _qualificationFocusNodes) f.dispose();
@@ -205,7 +279,7 @@ class _DoctorAccountCreationStep2State
     _trimQualificationsInPlace();
     setState(() {
       _qualificationsTyped = true;
-      _classificationTyped = true;
+      _scfhsNumberTyped = true;
       _ibanTyped = true;
       _qualificationsError = _validateQualificationsList();
     });
@@ -252,6 +326,8 @@ class _DoctorAccountCreationStep2State
         '[DoctorReg Step2] _submitCreateAccount: createDoctorAccount returned',
       );
       if (!mounted) return;
+      _submittedSuccessfully = true;
+      RegistrationFlowCache.clearDoctor();
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const VerifyEmailView()),
         (route) => false,
@@ -351,7 +427,9 @@ class _DoctorAccountCreationStep2State
     await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
     await Future<void>.delayed(const Duration(milliseconds: 180));
     if (!mounted) return;
-    Navigator.of(context).pop();
+    final draft = _captureDraft();
+    RegistrationFlowCache.doctorWorkInfo = draft;
+    Navigator.of(context).pop(draft);
   }
 
   @override
@@ -574,10 +652,10 @@ class _DoctorAccountCreationStep2State
                             ),
                             focusNode: _classificationFocusNode,
                             onChanged: (_) {
-                              setState(() => _classificationTyped = true);
+                              setState(() => _scfhsNumberTyped = true);
                               _classificationFieldKey.currentState?.validate();
                             },
-                            validator: (v) => _classificationTyped
+                            validator: (v) => _scfhsNumberTyped
                                 ? _validateSpecNumber(v)
                                 : null,
                             inputFormatters: [
